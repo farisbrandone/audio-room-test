@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Audio en Temps Réel</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+        color: white;
+        line-height: 1.6;
+        padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        padding: 30px;
+        width: 90%;
+        max-width: 800px;
+        backdrop-filter: blur(10px);
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 2.5rem;
+        color: #4facfe;
+        text-shadow: 0 0 10px rgba(79, 172, 254, 0.7);
+      }
+
+      .setup {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+      }
+
+      input {
+        flex: 1;
+        padding: 15px;
+        border: none;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 1.1rem;
+        min-width: 200px;
+      }
+
+      input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      button {
+        padding: 15px 25px;
+        background: linear-gradient(to right, #4facfe, #00f2fe);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        font-size: 1.1rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        background: linear-gradient(to right, #555, #777);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .participants {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .participant {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .participant::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #4facfe, #00f2fe, #4facfe);
+        z-index: -1;
+        border-radius: 17px;
+      }
+
+      .participant h2 {
+        margin-top: 0;
+        color: #4facfe;
+      }
+
+      .visualizer {
+        height: 150px;
+        margin: 20px 0;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 30px;
+      }
+
+      .status {
+        text-align: center;
+        font-size: 1.2rem;
+        margin: 20px 0;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      .visualizer-bar {
+        position: absolute;
+        bottom: 0;
+        width: 10px;
+        background: linear-gradient(to top, #4facfe, #00f2fe);
+        border-radius: 5px 5px 0 0;
+        transition: height 0.1s;
+      }
+
+      .active {
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(79, 172, 254, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 15px rgba(79, 172, 254, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(79, 172, 254, 0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Chat Audio en Temps Réel</h1>
+
+      <div class="setup">
+        <input
+          type="text"
+          id="roomId"
+          placeholder="Nom de la salle"
+          value="audio-chat"
+        />
+        <button id="joinBtn">Rejoindre</button>
+        <button id="leaveBtn" disabled>Quitter</button>
+      </div>
+
+      <div class="status" id="connectionStatus">Déconnecté</div>
+
+      <div class="participants">
+        <div class="participant">
+          <h2>Vous</h2>
+          <div class="visualizer" id="localViz"></div>
+          <div>
+            <button id="muteBtn">Muet</button>
+            <button id="deafenBtn">Désactiver le son</button>
+          </div>
+        </div>
+
+        <div class="participant">
+          <h2>Participant distant</h2>
+          <div class="visualizer" id="remoteViz"></div>
+          <audio id="remoteAudio" autoplay></audio>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div id="remotePeers"></div>
+      </div>
+    </div>
+
+    <script>
+      class AudioChatApp {
+        constructor() {
+          // Éléments DOM
+          this.roomIdInput = document.getElementById("roomId");
+          this.joinBtn = document.getElementById("joinBtn");
+          this.leaveBtn = document.getElementById("leaveBtn");
+          this.muteBtn = document.getElementById("muteBtn");
+          this.deafenBtn = document.getElementById("deafenBtn");
+          this.connectionStatus = document.getElementById("connectionStatus");
+          this.remotePeers = document.getElementById("remotePeers");
+          this.localViz = document.getElementById("localViz");
+          this.remoteViz = document.getElementById("remoteViz");
+          this.remoteAudio = document.getElementById("remoteAudio");
+
+          // État de l'application
+          this.roomId = null;
+          this.userId = this.generateUserId();
+          this.localStream = null;
+          this.peerConnections = {};
+          this.audioContext = null;
+          this.analyser = null;
+          this.remoteAnalyser = null;
+          this.isMuted = false;
+          this.isDeafened = false;
+          this.socket = null;
+
+          // Configuration WebRTC
+          this.config = {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+            ],
+          };
+
+          this.setupEventListeners();
+        }
+
+        generateUserId() {
+          return "user-" + Math.random().toString(36).substring(2, 8);
+        }
+
+        setupEventListeners() {
+          this.joinBtn.addEventListener("click", () => this.joinRoom());
+          this.leaveBtn.addEventListener("click", () => this.leaveRoom());
+          this.muteBtn.addEventListener("click", () => this.toggleMute());
+          this.deafenBtn.addEventListener("click", () => this.toggleDeafen());
+        }
+
+        async joinRoom() {
+          this.roomId = this.roomIdInput.value.trim() || "default-room";
+          this.updateStatus("Connexion en cours...");
+
+          try {
+            // Acquisition du média
+            this.localStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                channelCount: 1,
+              },
+              video: false,
+            });
+
+            this.setupAudioVisualization();
+            this.connectToSignalingServer();
+
+            this.joinBtn.disabled = true;
+            this.leaveBtn.disabled = false;
+            this.joinBtn.classList.remove("active");
+            this.leaveBtn.classList.add("active");
+          } catch (error) {
+            console.error("Erreur d'accès aux périphériques audio:", error);
+            this.updateStatus("Erreur: " + error.message);
+          }
+        }
+
+        connectToSignalingServer() {
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const host = window.location.host;
+          this.socket = new WebSocket(`${protocol}//${host}`);
+
+          this.socket.onopen = () => {
+            this.updateStatus(`Connecté à la salle: ${this.roomId}`);
+            this.socket.send(
+              JSON.stringify({
+                type: "join",
+                room: this.roomId,
+                userId: this.userId,
+              })
+            );
+          };
+
+          this.socket.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+
+            switch (message.type) {
+              case "new-peer":
+                this.handleNewPeer(message.userId);
+                break;
+
+              case "offer":
+                await this.handleOffer(message);
+                break;
+
+              case "answer":
+                await this.handleAnswer(message);
+                break;
+
+              case "candidate":
+                await this.handleICECandidate(message);
+                break;
+
+              case "peer-left":
+                this.removePeer(message.userId);
+                break;
+            }
+          };
+        }
+
+        async handleNewPeer(peerId) {
+          if (peerId === this.userId || this.peerConnections[peerId]) return;
+
+          // Création de la connexion peer-to-peer
+          const pc = new RTCPeerConnection(this.config);
+          this.peerConnections[peerId] = pc;
+
+          // Ajout des pistes audio locales
+          this.localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, this.localStream);
+          });
+
+          // Gestion des candidats ICE
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.socket.send(
+                JSON.stringify({
+                  type: "candidate",
+                  target: peerId,
+                  candidate: event.candidate,
+                  userId: this.userId,
+                })
+              );
+            }
+          };
+
+          // Réception du flux distant
+          pc.ontrack = (event) => {
+            if (event.streams && event.streams[0]) {
+              this.handleRemoteStream(peerId, event.streams[0]);
+            }
+          };
+
+          // Création de l'offre
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            this.socket.send(
+              JSON.stringify({
+                type: "offer",
+                target: peerId,
+                sdp: offer.sdp,
+                userId: this.userId,
+              })
+            );
+          } catch (error) {
+            console.error("Erreur de création de l'offre:", error);
+          }
+        }
+
+        async handleOffer(message) {
+          const peerId = message.userId;
+          if (this.peerConnections[peerId]) return;
+
+          const pc = new RTCPeerConnection(this.config);
+          this.peerConnections[peerId] = pc;
+
+          // Ajout des pistes audio locales
+          this.localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, this.localStream);
+          });
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.socket.send(
+                JSON.stringify({
+                  type: "candidate",
+                  target: peerId,
+                  candidate: event.candidate,
+                  userId: this.userId,
+                })
+              );
+            }
+          };
+
+          pc.ontrack = (event) => {
+            if (event.streams && event.streams[0]) {
+              this.handleRemoteStream(peerId, event.streams[0]);
+            }
+          };
+
+          try {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "offer",
+                sdp: message.sdp,
+              })
+            );
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            this.socket.send(
+              JSON.stringify({
+                type: "answer",
+                target: peerId,
+                sdp: answer.sdp,
+                userId: this.userId,
+              })
+            );
+          } catch (error) {
+            console.error("Erreur de traitement de l'offre:", error);
+          }
+        }
+
+        async handleAnswer(message) {
+          const pc = this.peerConnections[message.userId];
+          if (!pc) return;
+
+          try {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "answer",
+                sdp: message.sdp,
+              })
+            );
+          } catch (error) {
+            console.error("Erreur de traitement de la réponse:", error);
+          }
+        }
+
+        async handleICECandidate(message) {
+          const pc = this.peerConnections[message.userId];
+          if (!pc || !message.candidate) return;
+
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+          } catch (error) {
+            console.error("Erreur d'ajout du candidat ICE:", error);
+          }
+        }
+
+        handleRemoteStream(peerId, stream) {
+          // Connexion du flux distant à l'élément audio
+          this.remoteAudio.srcObject = stream;
+
+          // Configuration de la visualisation audio
+          this.setupRemoteVisualization(stream);
+        }
+
+        setupAudioVisualization() {
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+          }
+
+          this.analyser = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(
+            this.localStream
+          );
+          source.connect(this.analyser);
+          this.analyser.fftSize = 64;
+
+          this.visualizeAudio(this.localViz, this.analyser);
+        }
+
+        setupRemoteVisualization(stream) {
+          if (!this.audioContext) return;
+
+          this.remoteAnalyser = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(stream);
+          source.connect(this.remoteAnalyser);
+          this.remoteAnalyser.fftSize = 64;
+
+          this.visualizeAudio(this.remoteViz, this.remoteAnalyser);
+        }
+
+        visualizeAudio(container, analyser) {
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          container.innerHTML = "";
+
+          // Création des barres de visualisation
+          const barWidth = container.clientWidth / bufferLength;
+          for (let i = 0; i < bufferLength; i++) {
+            const bar = document.createElement("div");
+            bar.className = "visualizer-bar";
+            bar.style.left = `${i * barWidth}px`;
+            bar.style.width = `${barWidth - 2}px`;
+            container.appendChild(bar);
+          }
+
+          const bars = container.querySelectorAll(".visualizer-bar");
+
+          const draw = () => {
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            bars.forEach((bar, i) => {
+              const height = (dataArray[i] / 255) * 100;
+              bar.style.height = `${height}%`;
+              bar.style.opacity = height > 5 ? 1 : 0.3;
+            });
+          };
+
+          draw();
+        }
+
+        toggleMute() {
+          this.isMuted = !this.isMuted;
+          this.localStream.getAudioTracks().forEach((track) => {
+            track.enabled = !this.isMuted;
+          });
+          this.muteBtn.textContent = this.isMuted ? "Activer le micro" : "Muet";
+          this.muteBtn.style.background = this.isMuted
+            ? "linear-gradient(to right, #ff416c, #ff4b2b)"
+            : "linear-gradient(to right, #4facfe, #00f2fe)";
+        }
+
+        toggleDeafen() {
+          this.isDeafened = !this.isDeafened;
+          this.deafenBtn.textContent = this.isDeafened
+            ? "Activer le son"
+            : "Désactiver le son";
+          this.deafenBtn.style.background = this.isDeafened
+            ? "linear-gradient(to right, #ff416c, #ff4b2b)"
+            : "linear-gradient(to right, #4facfe, #00f2fe)";
+
+          this.remoteAudio.volume = this.isDeafened ? 0 : 1;
+        }
+
+        removePeer(peerId) {
+          const pc = this.peerConnections[peerId];
+          if (pc) {
+            pc.close();
+            delete this.peerConnections[peerId];
+          }
+        }
+
+        leaveRoom() {
+          if (this.socket) {
+            this.socket.send(
+              JSON.stringify({
+                type: "leave",
+                room: this.roomId,
+                userId: this.userId,
+              })
+            );
+            this.socket.close();
+          }
+
+          Object.values(this.peerConnections).forEach((pc) => pc.close());
+          this.peerConnections = {};
+
+          if (this.localStream) {
+            this.localStream.getTracks().forEach((track) => track.stop());
+            this.localStream = null;
+          }
+
+          if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+          }
+
+          this.remoteAudio.srcObject = null;
+          this.joinBtn.disabled = false;
+          this.leaveBtn.disabled = true;
+          this.joinBtn.classList.add("active");
+          this.leaveBtn.classList.remove("active");
+          this.updateStatus("Déconnecté");
+        }
+
+        updateStatus(text) {
+          this.connectionStatus.textContent = text;
+        }
+      }
+
+      // Initialiser l'application
+      document.addEventListener("DOMContentLoaded", () => {
+        const app = new AudioChatApp();
+
+        // Animation d'arrière-plan
+        const backgroundAnimation = () => {
+          document.body.style.backgroundPosition = `${Math.random() * 100}% ${
+            Math.random() * 100
+          }%`;
+          setTimeout(backgroundAnimation, 5000);
+        };
+        backgroundAnimation();
+      });
+    </script>
+  </body>
+</html>
