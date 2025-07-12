@@ -572,27 +572,25 @@
           // Configuration des serveurs ICE pour les communications internationales
           this.config = {
             iceServers: [
-              { urls: "stun:global.stun.twilio.com:3478?transport=udp" },
               { urls: "stun:stun.l.google.com:19302" },
-              { urls: "stun:stun.services.mozilla.com:3478" },
-              {
-                urls: "turn:global.turn.twilio.com:3478?transport=udp",
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:stun2.l.google.com:19302" },
+              { urls: "stun:stun3.l.google.com:19302" },
+              { urls: "stun:stun4.l.google.com:19302" },
+              /*   {
+                urls: [
+                  "turn:global.turn.twilio.com:3478?transport=udp",
+                  "turn:global.turn.twilio.com:3478?transport=tcp",
+                ],
                 username:
                   "d3bd2f01bdb108c8c4ef05a0a6a1f1a557c2e3d0f0d0e0b4d5b9a3e",
                 credential: "kZ1g8G4uF7dJ3w6C9vB2nH5mX0qL4iA7s",
-              },
-              {
-                urls: "turn:global.turn.twilio.com:3478?transport=tcp",
-                username:
-                  "d3bd2f01bdb108c8c4ef05a0a6a1f1a557c2e3d0f0d0e0b4d5b9a3e",
-                credential: "kZ1g8G4uF7dJ3w6C9vB2nH5mX0qL4iA7s",
-              },
+              }, */
             ],
             iceTransportPolicy: "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           };
-
           // Initialisation
           this.setupEventListeners();
           this.detectLocation();
