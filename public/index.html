@@ -678,6 +678,22 @@
           }
         }
 
+        setupAudioVisualization() {
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+          }
+
+          this.analyser = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(
+            this.localStream
+          );
+          source.connect(this.analyser);
+          this.analyser.fftSize = 64;
+
+          this.visualizeAudio(this.localViz, this.analyser);
+        }
+
         connectToSignalingServer() {
           const protocol =
             window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -896,6 +912,88 @@
 
         // ... (autres méthodes: handleOffer, handleAnswer, handleICECandidate) ...
 
+        async handleOffer(message) {
+          const peerId = message.userId;
+          if (this.peerConnections[peerId]) return;
+
+          const pc = new RTCPeerConnection(this.config);
+          this.peerConnections[peerId] = pc;
+
+          // Ajout des pistes audio locales
+          this.localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, this.localStream);
+          });
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.socket.send(
+                JSON.stringify({
+                  type: "candidate",
+                  target: peerId,
+                  candidate: event.candidate,
+                  userId: this.userId,
+                })
+              );
+            }
+          };
+
+          pc.ontrack = (event) => {
+            if (event.streams && event.streams[0]) {
+              this.handleRemoteStream(peerId, event.streams[0]);
+            }
+          };
+
+          try {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "offer",
+                sdp: message.sdp,
+              })
+            );
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            this.socket.send(
+              JSON.stringify({
+                type: "answer",
+                target: peerId,
+                sdp: answer.sdp,
+                userId: this.userId,
+              })
+            );
+          } catch (error) {
+            console.error("Erreur de traitement de l'offre:", error);
+          }
+        }
+
+        async handleAnswer(message) {
+          const pc = this.peerConnections[message.userId];
+          if (!pc) return;
+
+          try {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "answer",
+                sdp: message.sdp,
+              })
+            );
+          } catch (error) {
+            console.error("Erreur de traitement de la réponse:", error);
+          }
+        }
+
+        async handleICECandidate(message) {
+          const pc = this.peerConnections[message.userId];
+          if (!pc || !message.candidate) return;
+
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+          } catch (error) {
+            console.error("Erreur d'ajout du candidat ICE:", error);
+          }
+        }
+
         startConnectionMonitoring(pc) {
           this.stopConnectionMonitoring();
 
@@ -953,6 +1051,136 @@
 
         // ... (autres méthodes: handleRemoteStream, setupAudioVisualization, etc.) ...
 
+        handleRemoteStream(peerId, stream) {
+          // Connexion du flux distant à l'élément audio
+          this.remoteAudio.srcObject = stream;
+
+          // Configuration de la visualisation audio
+          this.setupRemoteVisualization(stream);
+        }
+
+        setupAudioVisualization() {
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+          }
+
+          this.analyser = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(
+            this.localStream
+          );
+          source.connect(this.analyser);
+          this.analyser.fftSize = 64;
+
+          this.visualizeAudio(this.localViz, this.analyser);
+        }
+
+        setupRemoteVisualization(stream) {
+          if (!this.audioContext) return;
+
+          this.remoteAnalyser = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(stream);
+          source.connect(this.remoteAnalyser);
+          this.remoteAnalyser.fftSize = 64;
+
+          this.visualizeAudio(this.remoteViz, this.remoteAnalyser);
+        }
+
+        visualizeAudio(container, analyser) {
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          container.innerHTML = "";
+
+          // Création des barres de visualisation
+          const barWidth = container.clientWidth / bufferLength;
+          for (let i = 0; i < bufferLength; i++) {
+            const bar = document.createElement("div");
+            bar.className = "visualizer-bar";
+            bar.style.left = `${i * barWidth}px`;
+            bar.style.width = `${barWidth - 2}px`;
+            container.appendChild(bar);
+          }
+
+          const bars = container.querySelectorAll(".visualizer-bar");
+
+          const draw = () => {
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            bars.forEach((bar, i) => {
+              const height = (dataArray[i] / 255) * 100;
+              bar.style.height = `${height}%`;
+              bar.style.opacity = height > 5 ? 1 : 0.3;
+            });
+          };
+
+          draw();
+        }
+
+        toggleMute() {
+          this.isMuted = !this.isMuted;
+          this.localStream.getAudioTracks().forEach((track) => {
+            track.enabled = !this.isMuted;
+          });
+          this.muteBtn.textContent = this.isMuted ? "Activer le micro" : "Muet";
+          this.muteBtn.style.background = this.isMuted
+            ? "linear-gradient(to right, #ff416c, #ff4b2b)"
+            : "linear-gradient(to right, #4facfe, #00f2fe)";
+        }
+
+        toggleDeafen() {
+          this.isDeafened = !this.isDeafened;
+          this.deafenBtn.textContent = this.isDeafened
+            ? "Activer le son"
+            : "Désactiver le son";
+          this.deafenBtn.style.background = this.isDeafened
+            ? "linear-gradient(to right, #ff416c, #ff4b2b)"
+            : "linear-gradient(to right, #4facfe, #00f2fe)";
+
+          this.remoteAudio.volume = this.isDeafened ? 0 : 1;
+        }
+
+        removePeer(peerId) {
+          const pc = this.peerConnections[peerId];
+          if (pc) {
+            pc.close();
+            delete this.peerConnections[peerId];
+          }
+        }
+
+        leaveRoom() {
+          if (this.socket) {
+            this.socket.send(
+              JSON.stringify({
+                type: "leave",
+                room: this.roomId,
+                userId: this.userId,
+              })
+            );
+            this.socket.close();
+          }
+
+          Object.values(this.peerConnections).forEach((pc) => pc.close());
+          this.peerConnections = {};
+
+          if (this.localStream) {
+            this.localStream.getTracks().forEach((track) => track.stop());
+            this.localStream = null;
+          }
+
+          if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+          }
+
+          this.remoteAudio.srcObject = null;
+          this.joinBtn.disabled = false;
+          this.leaveBtn.disabled = true;
+          this.joinBtn.classList.add("active");
+          this.leaveBtn.classList.remove("active");
+          this.updateStatus("Déconnecté");
+        }
+
         updateStatus(text, state) {
           this.connectionStatus.innerHTML = `
           <span class="status-indicator status-${state}"></span>
@@ -964,6 +1192,14 @@
       // Initialiser l'application
       document.addEventListener("DOMContentLoaded", () => {
         const app = new InternationalAudioChat();
+        // Animation d'arrière-plan
+        const backgroundAnimation = () => {
+          document.body.style.backgroundPosition = `${Math.random() * 100}% ${
+            Math.random() * 100
+          }%`;
+          setTimeout(backgroundAnimation, 5000);
+        };
+        backgroundAnimation();
       });
     </script>
   </body>
