@@ -1,0 +1,131 @@
+/* public/style.css */
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f7fb;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 30px;
+}
+
+h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.setup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+button {
+  padding: 12px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #2980b9;
+}
+
+button:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.participants {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.local,
+.remote {
+  flex: 1;
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.remote {
+  min-height: 200px;
+}
+
+.visualizer {
+  height: 100px;
+  margin-top: 15px;
+  background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.audio-controls {
+  display: flex;
+  gap: 10px;
+}
+
+#muteBtn,
+#deafenBtn {
+  background: #e74c3c;
+}
+
+#muteBtn:hover,
+#deafenBtn:hover {
+  background: #c0392b;
+}
+
+.status {
+  font-weight: 500;
+  color: #7f8c8d;
+}
+
+.remote-peer {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.remote-peer h3 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+.visualizer-bar {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  background: #3498db;
+  border-radius: 2px 2px 0 0;
+}
