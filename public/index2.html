@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chat Audio International - Solution Complète</title>
+    <title>Chat Audio International</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -567,7 +567,6 @@
           this.localPosition = { x: 0.3, y: 0.5 };
           this.remotePosition = { x: 0.7, y: 0.5 };
           this.pingTimestamps = {};
-          this.remoteLocationText = "En attente de connexion...";
 
           // Configuration des serveurs ICE pour les communications internationales
           this.config = {
@@ -726,7 +725,7 @@
 
             switch (message.type) {
               case "new-peer":
-                this.handleNewPeer(message.userId);
+                this.handleNewPeer(message.userId, message.location);
                 break;
 
               case "offer":
@@ -746,8 +745,7 @@
                 break;
 
               case "location":
-                this.remoteLocationText = message.location;
-                this.remoteLocation.textContent = this.remoteLocationText;
+                this.remoteLocation.textContent = message.location;
                 this.remotePosition = {
                   x: 0.2 + Math.random() * 0.6,
                   y: 0.2 + Math.random() * 0.6,
@@ -766,7 +764,7 @@
           };
         }
 
-        async handleNewPeer(peerId) {
+        async handleNewPeer(peerId, location) {
           if (peerId === this.userId || this.peerConnections[peerId]) return;
 
           // Envoyer notre localisation
@@ -804,7 +802,6 @@
           pc.ontrack = (event) => {
             if (event.streams && event.streams[0]) {
               this.handleRemoteStream(event.streams[0]);
-              this.remoteLocation.textContent = this.remoteLocationText;
             }
           };
 
@@ -924,7 +921,6 @@
           pc.ontrack = (event) => {
             if (event.streams && event.streams[0]) {
               this.handleRemoteStream(event.streams[0]);
-              this.remoteLocation.textContent = this.remoteLocationText;
             }
           };
 
@@ -1159,7 +1155,6 @@
             delete this.peerConnections[peerId];
           }
           this.remoteLocation.textContent = "En attente de connexion...";
-          this.remoteLocationText = "En attente de connexion...";
           this.remotePosition = null;
           this.renderWorldMap();
         }
