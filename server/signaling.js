@@ -89,6 +89,7 @@ app.use(express.static("./public"));
 
 app.get("/", (req, res) => {
   console.log(__dirname);
+  console.log("tonton");
   res.sendFile(__dirname, "/index.html");
 });
 

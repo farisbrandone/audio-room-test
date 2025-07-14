@@ -5,20 +5,12 @@ dotenv.config();
 const accountSid = process.env.AccountSID;
 const authToken = process.env.AuthToken;
 
-console.log({ accountSid, authToken });
-
 const client = require("twilio")(accountSid, authToken);
 
 async function getTURNCredentials() {
   try {
     const token = await client.tokens.create();
-    console.log({
-      username: token.username,
-      password: token.password,
-      urls: token.iceServers
-        .filter((server) => server.url.startsWith("turn"))
-        .map((server) => server.url),
-    });
+
     return {
       username: token.username,
       password: token.password,

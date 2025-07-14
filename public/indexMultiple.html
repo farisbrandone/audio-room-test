@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Audio Multi-Salles</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary: #4a86e8;
+        --secondary: #3a75d6;
+        --background: #121212;
+        --card: #1e1e1e;
+        --text: #f0f0f0;
+        --success: #4caf50;
+        --warning: #ff9800;
+        --error: #f44336;
+        --border-radius: 16px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--background);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        background-image: radial-gradient(
+            circle at 10% 20%,
+            rgba(25, 25, 112, 0.1) 0%,
+            transparent 20%
+          ),
+          radial-gradient(
+            circle at 90% 80%,
+            rgba(139, 0, 139, 0.1) 0%,
+            transparent 20%
+          );
+      }
+
+      .container {
+        background: var(--card);
+        border-radius: var(--border-radius);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        padding: 30px;
+        width: 100%;
+        max-width: 1200px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 15px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        background: linear-gradient(to right, #4facfe, #00f2fe);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 15px rgba(79, 172, 254, 0.3);
+      }
+
+      .subtitle {
+        color: #aaa;
+        font-size: 1.1rem;
+      }
+
+      .dashboard {
+        display: flex;
+        gap: 20px;
+        height: 70vh;
+      }
+
+      .rooms-panel {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        min-width: 300px;
+      }
+
+      .room-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      input {
+        flex: 1;
+        padding: 12px 15px;
+        border: none;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      button {
+        padding: 12px 20px;
+        background: linear-gradient(to right, var(--primary), var(--secondary));
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        font-size: 1rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        background: linear-gradient(to right, #555, #777);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .button-danger {
+        background: linear-gradient(to right, var(--error), #d32f2f);
+      }
+
+      .button-warning {
+        background: linear-gradient(to right, var(--warning), #f57c00);
+      }
+
+      .button-success {
+        background: linear-gradient(to right, var(--success), #2e7d32);
+      }
+
+      .rooms-list {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .room-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .room-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .room-item.active {
+        border: 1px solid var(--primary);
+        background: rgba(74, 134, 232, 0.15);
+      }
+
+      .room-info {
+        flex: 1;
+      }
+
+      .room-name {
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+
+      .room-participants {
+        font-size: 0.85rem;
+        color: #aaa;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .room-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .room-btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+      }
+
+      .chat-panel {
+        flex: 2;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .room-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .room-title {
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .participants-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+      }
+
+      .participant {
+        width: calc(50% - 10px);
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 15px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .participant-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .participant-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), #00f2fe);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .participant-info {
+        flex: 1;
+      }
+
+      .participant h2 {
+        font-size: 1.1rem;
+        margin-bottom: 3px;
+      }
+
+      .participant-status {
+        font-size: 0.8rem;
+        color: #aaa;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .status-connected {
+        background: var(--success);
+      }
+
+      .status-disconnected {
+        background: var(--error);
+      }
+
+      .status-talking {
+        background: var(--primary);
+        box-shadow: 0 0 8px var(--primary);
+        animation: pulse 1.5s infinite;
+      }
+
+      .visualizer-container {
+        height: 80px;
+        margin: 10px 0;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .visualizer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: flex-end;
+        padding: 0 3px;
+      }
+
+      .visualizer-bar {
+        flex: 1;
+        margin: 0 1px;
+        background: linear-gradient(to top, var(--primary), #00f2fe);
+        border-radius: 2px 2px 0 0;
+        transition: height 0.1s;
+        min-height: 1px;
+      }
+
+      .room-controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .share-link {
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 50px;
+        padding: 0 15px;
+        flex: 1;
+      }
+
+      .share-link input {
+        background: transparent;
+        border: none;
+        padding: 10px 0;
+        flex: 1;
+      }
+
+      .share-btn {
+        background: none;
+        border: none;
+        color: var(--primary);
+        cursor: pointer;
+      }
+
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--success);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 50px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1000;
+        animation: slideIn 0.3s, fadeOut 0.5s 2.5s forwards;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.6;
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 900px) {
+        .dashboard {
+          flex-direction: column;
+          height: auto;
+        }
+
+        .rooms-panel,
+        .chat-panel {
+          min-width: 100%;
+        }
+
+        .participant {
+          width: 100%;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1><i class="fas fa-users"></i> Chat Audio Multi-Salles</h1>
+        <p class="subtitle">
+          Communiquez en temps réel dans plusieurs salles simultanément
+        </p>
+      </header>
+
+      <div class="dashboard">
+        <div class="rooms-panel">
+          <div class="room-controls">
+            <input
+              type="text"
+              id="newRoomInput"
+              placeholder="Nom de la nouvelle salle"
+            />
+            <button id="createRoomBtn">
+              <i class="fas fa-plus"></i> Créer
+            </button>
+          </div>
+
+          <h3>Salles Actives</h3>
+          <div class="rooms-list" id="roomsList">
+            <!-- Les salles seront ajoutées dynamiquement ici -->
+          </div>
+        </div>
+
+        <div class="chat-panel">
+          <div class="room-header">
+            <div class="room-title">
+              <i class="fas fa-door-open"></i>
+              <span id="currentRoomName">Aucune salle sélectionnée</span>
+            </div>
+            <div id="participantCount">0 participants</div>
+          </div>
+
+          <div class="participants-container" id="participantsContainer">
+            <!-- Les participants seront ajoutés dynamiquement ici -->
+          </div>
+
+          <div class="room-controls">
+            <div class="share-link">
+              <input
+                type="text"
+                id="roomLink"
+                readonly
+                placeholder="Lien de partage"
+              />
+              <button class="share-btn" id="copyLinkBtn">
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+            <button id="joinRoomBtn" class="button-success" disabled>
+              <i class="fas fa-sign-in-alt"></i> Rejoindre
+            </button>
+            <button id="leaveRoomBtn" class="button-danger" disabled>
+              <i class="fas fa-sign-out-alt"></i> Quitter
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      class MultiRoomAudioChat {
+        constructor() {
+          // Références aux éléments DOM
+          this.newRoomInput = document.getElementById("newRoomInput");
+          this.createRoomBtn = document.getElementById("createRoomBtn");
+          this.roomsList = document.getElementById("roomsList");
+          this.currentRoomName = document.getElementById("currentRoomName");
+          this.participantCount = document.getElementById("participantCount");
+          this.participantsContainer = document.getElementById(
+            "participantsContainer"
+          );
+          this.roomLink = document.getElementById("roomLink");
+          this.copyLinkBtn = document.getElementById("copyLinkBtn");
+          this.joinRoomBtn = document.getElementById("joinRoomBtn");
+          this.leaveRoomBtn = document.getElementById("leaveRoomBtn");
+
+          // État de l'application
+          this.userId = this.generateUserId();
+          this.userName = `Utilisateur-${this.userId.substring(5, 9)}`;
+          this.currentRoomId = null;
+          this.rooms = {};
+          this.localStream = null;
+          this.peerConnections = {};
+          this.audioContext = null;
+          this.analysers = {};
+          this.socket = null;
+
+          // Configuration WebRTC
+          this.config = {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:stun2.l.google.com:19302" },
+              { urls: "stun:stun3.l.google.com:19302" },
+              { urls: "stun:stun4.l.google.com:19302" },
+            ],
+
+            /*   iceTransportPolicy: "all",
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require", */
+            // Optimisations pour la voix
+            iceTransportPolicy: "relay", // Forcer TURN pour traverser les NAT
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+
+            // Configuration audio
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000,
+              sampleSize: 16,
+              latency: 0.02, // Latence ultra-faible
+            },
+          };
+
+          // Initialisation
+          this.setupEventListeners();
+          this.connectToSignalingServer();
+        }
+
+        async getTURNCredentials() {
+          try {
+            const response = await fetch("/turn-credentials");
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error);
+
+            return {
+              urls: data.urls,
+              username: data.username,
+              credential: data.credential,
+            };
+          } catch (error) {
+            console.error("Erreur TURN:", error);
+            return null;
+          }
+        }
+
+        generateUserId() {
+          return "user-" + Math.random().toString(36).substring(2, 10);
+        }
+
+        setupEventListeners() {
+          this.createRoomBtn.addEventListener("click", () => this.createRoom());
+          this.joinRoomBtn.addEventListener("click", () => this.joinRoom());
+          this.leaveRoomBtn.addEventListener("click", () => this.leaveRoom());
+          this.copyLinkBtn.addEventListener("click", () => this.copyRoomLink());
+        }
+
+        connectToSignalingServer() {
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const host = window.location.host;
+          this.socket = new WebSocket(`${protocol}//${host}`);
+
+          this.socket.onopen = () => {
+            console.log("Connecté au serveur de signalisation");
+          };
+
+          this.socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            switch (message.type) {
+              case "room-created":
+                this.handleRoomCreated(message);
+                break;
+
+              case "room-list":
+                this.updateRoomList(message.rooms);
+                break;
+
+              case "room-joined":
+                this.handleRoomJoined(message);
+                break;
+
+              case "user-joined":
+                this.handleUserJoined(message);
+                break;
+
+              case "user-left":
+                this.handleUserLeft(message);
+                break;
+
+              case "offer":
+                this.handleOffer(message);
+                break;
+
+              case "answer":
+                this.handleAnswer(message);
+                break;
+
+              case "candidate":
+                this.handleICECandidate(message);
+                break;
+
+              case "user-audio":
+                this.updateUserAudioStatus(message);
+                break;
+            }
+          };
+
+          // Demander la liste des salles existantes
+          this.socket.onopen = () => {
+            this.socket.send(
+              JSON.stringify({
+                type: "get-rooms",
+              })
+            );
+          };
+        }
+
+        createRoom() {
+          const roomName = this.newRoomInput.value.trim();
+          if (!roomName) return;
+
+          const roomId = `room-${Date.now()}`;
+
+          this.socket.send(
+            JSON.stringify({
+              type: "create-room",
+              roomId: roomId,
+              roomName: roomName,
+              userId: this.userId,
+            })
+          );
+
+          this.newRoomInput.value = "";
+        }
+
+        handleRoomCreated(message) {
+          this.rooms[message.roomId] = {
+            id: message.roomId,
+            name: message.roomName,
+            participants: {},
+          };
+
+          this.updateRoomList();
+          this.showNotification(`Salle "${message.roomName}" créée`);
+        }
+
+        updateRoomList(rooms = null) {
+          this.roomsList.innerHTML = "";
+
+          const roomsData = rooms || Object.values(this.rooms);
+
+          if (roomsData.length === 0) {
+            this.roomsList.innerHTML =
+              '<div class="room-item">Aucune salle active</div>';
+            return;
+          }
+
+          roomsData.forEach((room) => {
+            const roomItem = document.createElement("div");
+            roomItem.className = `room-item ${
+              this.currentRoomId === room.id ? "active" : ""
+            }`;
+            roomItem.innerHTML = `
+            <div class="room-info">
+              <div class="room-name">${room.name}</div>
+              <div class="room-participants">
+                <i class="fas fa-users"></i>
+                <span>${
+                  Object.keys(room.participants).length
+                } participants</span>
+              </div>
+            </div>
+            <div class="room-actions">
+              ${
+                this.currentRoomId !== room.id
+                  ? `
+                <button class="room-btn" data-room="${room.id}">
+                  <i class="fas fa-sign-in-alt"></i>
+                </button>
+              `
+                  : ""
+              }
+            </div>
+          `;
+
+            if (this.currentRoomId !== room.id) {
+              roomItem
+                .querySelector("button")
+                .addEventListener("click", (e) => {
+                  this.currentRoomId = room.id;
+                  this.currentRoomName.textContent = room.name;
+                  this.updateRoomLink();
+                  this.joinRoomBtn.disabled = false;
+                  this.updateRoomList();
+                });
+            }
+
+            this.roomsList.appendChild(roomItem);
+          });
+        }
+
+        async joinRoom() {
+          if (!this.currentRoomId) return;
+
+          const turnCredentials = await this.getTURNCredentials();
+
+          if (turnCredentials) {
+            this.config.iceServers.push({
+              urls: turnCredentials.urls,
+              username: turnCredentials.username,
+              credential: turnCredentials.credential,
+            });
+          }
+
+          // Obtenir le flux audio
+          navigator.mediaDevices
+            .getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+              video: false,
+            })
+            .then((stream) => {
+              this.localStream = stream;
+
+              // Rejoindre la salle via le serveur de signalisation
+              this.socket.send(
+                JSON.stringify({
+                  type: "join-room",
+                  roomId: this.currentRoomId,
+                  userId: this.userId,
+                  userName: this.userName,
+                })
+              );
+
+              this.joinRoomBtn.disabled = true;
+              this.leaveRoomBtn.disabled = false;
+            })
+            .catch((error) => {
+              console.error("Erreur d'accès au microphone:", error);
+              this.showNotification("Erreur: Accès au microphone refusé", true);
+            });
+        }
+
+        handleRoomJoined(message) {
+          this.rooms[message.roomId] = message.room;
+          this.updateRoomList();
+
+          // Créer son propre élément participant
+          this.addParticipant(this.userId, this.userName, true);
+
+          // Ajouter les participants existants
+          message.existingUsers.forEach((user) => {
+            if (user.id !== this.userId) {
+              this.addParticipant(user.id, user.name);
+            }
+          });
+
+          // Mettre à jour le compte de participants
+          this.updateParticipantCount();
+
+          // Se connecter aux participants existants
+          this.connectToExistingParticipants(message.existingUsers);
+        }
+
+        addParticipant(userId, userName, isLocal = false) {
+          if (document.getElementById(`participant-${userId}`)) return;
+
+          const participant = document.createElement("div");
+          participant.className = "participant";
+          participant.id = `participant-${userId}`;
+          participant.innerHTML = `
+          <div class="participant-header">
+            <div class="participant-avatar">${userName.charAt(0)}</div>
+            <div class="participant-info">
+              <h2>${userName} ${isLocal ? "(Vous)" : ""}</h2>
+              <div class="participant-status">
+                <span class="status-indicator status-connected"></span>
+                <span>Connecté</span>
+              </div>
+            </div>
+          </div>
+          <div class="visualizer-container">
+            <div class="visualizer" id="viz-${userId}"></div>
+          </div>
+          ${!isLocal ? `<audio id="audio-${userId}" autoplay></audio>` : ""}
+        `;
+
+          this.participantsContainer.appendChild(participant);
+
+          if (isLocal) {
+            this.setupLocalAudioVisualization(userId);
+          }
+        }
+
+        setupLocalAudioVisualization(userId) {
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+          }
+
+          this.analysers[userId] = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(
+            this.localStream
+          );
+          source.connect(this.analysers[userId]);
+          this.analysers[userId].fftSize = 32;
+
+          this.visualizeAudio(`viz-${userId}`, this.analysers[userId]);
+        }
+
+        visualizeAudio(containerId, analyser) {
+          const container = document.getElementById(containerId);
+          if (!container) return;
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          container.innerHTML = "";
+
+          // Créer les barres de visualisation
+          const barWidth = container.clientWidth / bufferLength;
+          for (let i = 0; i < bufferLength; i++) {
+            const bar = document.createElement("div");
+            bar.className = "visualizer-bar";
+            bar.style.left = `${i * barWidth}px`;
+            bar.style.width = `${barWidth - 2}px`;
+            container.appendChild(bar);
+          }
+
+          const bars = container.querySelectorAll(".visualizer-bar");
+
+          const draw = () => {
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            bars.forEach((bar, i) => {
+              const height = (dataArray[i] / 255) * 100;
+              bar.style.height = `${height}%`;
+              bar.style.opacity = height > 5 ? 1 : 0.3;
+            });
+
+            // Détecter si l'utilisateur parle
+            const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            if (avg > 30) {
+              const status = document.querySelector(
+                `#participant-${userId} .status-indicator`
+              );
+              if (status) {
+                status.classList.add("status-talking");
+                status.classList.remove("status-connected");
+                setTimeout(() => {
+                  status.classList.remove("status-talking");
+                  status.classList.add("status-connected");
+                }, 1000);
+              }
+            }
+          };
+
+          draw();
+        }
+
+        connectToExistingParticipants(users) {
+          users.forEach((user) => {
+            if (user.id !== this.userId && !this.peerConnections[user.id]) {
+              this.createPeerConnection(user.id);
+            }
+          });
+        }
+
+        createPeerConnection(userId) {
+          const pc = new RTCPeerConnection(this.config);
+          this.peerConnections[userId] = pc;
+
+          // Ajouter les pistes locales
+          this.localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, this.localStream);
+          });
+
+          // Gestion des candidats ICE
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.socket.send(
+                JSON.stringify({
+                  type: "candidate",
+                  roomId: this.currentRoomId,
+                  fromUserId: this.userId,
+                  toUserId: userId,
+                  candidate: event.candidate,
+                })
+              );
+            }
+          };
+
+          // Réception du flux distant
+          pc.ontrack = (event) => {
+            if (event.streams && event.streams[0]) {
+              const audioElement = document.getElementById(`audio-${userId}`);
+              if (audioElement) {
+                audioElement.srcObject = event.streams[0];
+
+                // Configurer la visualisation audio
+                if (!this.analysers[userId]) {
+                  this.setupRemoteAudioVisualization(userId, event.streams[0]);
+                }
+              }
+            }
+          };
+
+          // Créer une offre
+          pc.createOffer()
+            .then((offer) => pc.setLocalDescription(offer))
+            .then(() => {
+              this.socket.send(
+                JSON.stringify({
+                  type: "offer",
+                  roomId: this.currentRoomId,
+                  fromUserId: this.userId,
+                  toUserId: userId,
+                  sdp: pc.localDescription.sdp,
+                })
+              );
+            })
+            .catch((error) => console.error("Erreur création offre:", error));
+        }
+
+        setupRemoteAudioVisualization(userId, stream) {
+          if (!this.audioContext) return;
+
+          this.analysers[userId] = this.audioContext.createAnalyser();
+          const source = this.audioContext.createMediaStreamSource(stream);
+          source.connect(this.analysers[userId]);
+          this.analysers[userId].fftSize = 32;
+
+          this.visualizeAudio(`viz-${userId}`, this.analysers[userId]);
+        }
+
+        handleUserJoined(message) {
+          if (message.userId === this.userId) return;
+
+          this.addParticipant(message.userId, message.userName);
+          this.updateParticipantCount();
+
+          // Créer une connexion avec le nouvel utilisateur
+          this.createPeerConnection(message.userId);
+        }
+
+        handleUserLeft(message) {
+          const participant = document.getElementById(
+            `participant-${message.userId}`
+          );
+          if (participant) participant.remove();
+
+          // Fermer la connexion peer
+          if (this.peerConnections[message.userId]) {
+            this.peerConnections[message.userId].close();
+            delete this.peerConnections[message.userId];
+          }
+
+          this.updateParticipantCount();
+        }
+
+        updateParticipantCount() {
+          const count =
+            this.participantsContainer.querySelectorAll(".participant").length;
+          this.participantCount.textContent = `${count} participant${
+            count > 1 ? "s" : ""
+          }`;
+        }
+
+        handleOffer(message) {
+          if (!this.peerConnections[message.fromUserId]) {
+            this.createPeerConnection(message.fromUserId);
+          }
+
+          const pc = this.peerConnections[message.fromUserId];
+          pc.setRemoteDescription(
+            new RTCSessionDescription({
+              type: "offer",
+              sdp: message.sdp,
+            })
+          )
+            .then(() => pc.createAnswer())
+            .then((answer) => pc.setLocalDescription(answer))
+            .then(() => {
+              this.socket.send(
+                JSON.stringify({
+                  type: "answer",
+                  roomId: this.currentRoomId,
+                  fromUserId: this.userId,
+                  toUserId: message.fromUserId,
+                  sdp: pc.localDescription.sdp,
+                })
+              );
+            })
+            .catch((error) => console.error("Erreur traitement offre:", error));
+        }
+
+        handleAnswer(message) {
+          const pc = this.peerConnections[message.fromUserId];
+          if (pc) {
+            pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "answer",
+                sdp: message.sdp,
+              })
+            );
+          }
+        }
+
+        handleICECandidate(message) {
+          const pc = this.peerConnections[message.fromUserId];
+          if (pc && message.candidate) {
+            pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+          }
+        }
+
+        leaveRoom() {
+          if (!this.currentRoomId) return;
+
+          this.socket.send(
+            JSON.stringify({
+              type: "leave-room",
+              roomId: this.currentRoomId,
+              userId: this.userId,
+            })
+          );
+
+          // Fermer toutes les connexions peer
+          Object.values(this.peerConnections).forEach((pc) => pc.close());
+          this.peerConnections = {};
+
+          // Réinitialiser l'interface
+          this.participantsContainer.innerHTML = "";
+          this.currentRoomName.textContent = "Aucune salle sélectionnée";
+          this.participantCount.textContent = "0 participants";
+          this.joinRoomBtn.disabled = false;
+          this.leaveRoomBtn.disabled = true;
+          this.currentRoomId = null;
+
+          // Arrêter le flux local
+          if (this.localStream) {
+            this.localStream.getTracks().forEach((track) => track.stop());
+            this.localStream = null;
+          }
+
+          // Fermer le contexte audio
+          if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+          }
+        }
+
+        updateRoomLink() {
+          if (this.currentRoomId) {
+            this.roomLink.value = `${window.location.origin}${window.location.pathname}?room=${this.currentRoomId}`;
+          }
+        }
+
+        copyRoomLink() {
+          this.roomLink.select();
+          document.execCommand("copy");
+          this.showNotification("Lien copié dans le presse-papier");
+        }
+
+        showNotification(message, isError = false) {
+          const notification = document.createElement("div");
+          notification.className = `notification ${
+            isError ? "error" : "success"
+          }`;
+          notification.innerHTML = `
+          <i class="fas ${
+            isError ? "fa-exclamation-circle" : "fa-check-circle"
+          }"></i>
+          <span>${message}</span>
+        `;
+
+          document.body.appendChild(notification);
+
+          setTimeout(() => {
+            notification.remove();
+          }, 3000);
+        }
+
+        initFromUrl() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const roomId = urlParams.get("room");
+
+          if (roomId && this.rooms[roomId]) {
+            this.currentRoomId = roomId;
+            this.currentRoomName.textContent = this.rooms[roomId].name;
+            this.updateRoomLink();
+            this.joinRoomBtn.disabled = false;
+            this.updateRoomList();
+          }
+        }
+      }
+
+      // Initialiser l'application
+      document.addEventListener("DOMContentLoaded", () => {
+        const app = new MultiRoomAudioChat();
+        app.initFromUrl();
+      });
+    </script>
+  </body>
+</html>
