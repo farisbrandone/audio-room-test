@@ -1,6 +1,9 @@
 // server/turn-service.js
 const accountSid = process.env.accountSid;
 const authToken = process.env.authToken;
+
+console.log({ accountSid, authToken });
+
 const client = require("twilio")(accountSid, authToken);
 
 async function getTURNCredentials() {
