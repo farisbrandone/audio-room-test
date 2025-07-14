@@ -577,7 +577,8 @@
               { urls: "stun:stun2.l.google.com:19302" },
               { urls: "stun:stun3.l.google.com:19302" },
               { urls: "stun:stun4.l.google.com:19302" },
-              /*   {
+              { urls: "stun:global.stun.twilio.com:3478" },
+              /*{
                 urls: [
                   "turn:global.turn.twilio.com:3478?transport=udp",
                   "turn:global.turn.twilio.com:3478?transport=tcp",
@@ -585,16 +586,46 @@
                 username:
                   "d3bd2f01bdb108c8c4ef05a0a6a1f1a557c2e3d0f0d0e0b4d5b9a3e",
                 credential: "kZ1g8G4uF7dJ3w6C9vB2nH5mX0qL4iA7s",
-              }, */
+              },*/
             ],
-            iceTransportPolicy: "all",
+            // Optimisations pour la voix
+            iceTransportPolicy: "relay", // Forcer TURN pour traverser les NAT
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
+
+            // Configuration audio
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000,
+              sampleSize: 16,
+              latency: 0.02, // Latence ultra-faible
+            },
           };
           // Initialisation
           this.setupEventListeners();
           this.detectLocation();
           this.renderWorldMap();
+        }
+
+        async getTURNCredentials() {
+          try {
+            const response = await fetch("/turn-credentials");
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error);
+
+            return {
+              urls: data.urls,
+              username: data.username,
+              credential: data.credential,
+            };
+          } catch (error) {
+            console.error("Erreur TURN:", error);
+            return null;
+          }
         }
 
         generateUserId() {
@@ -668,6 +699,16 @@
         }
 
         async joinRoom() {
+          const turnCredentials = await this.getTURNCredentials();
+
+          if (turnCredentials) {
+            this.config.iceServers.push({
+              urls: turnCredentials.urls,
+              username: turnCredentials.username,
+              credential: turnCredentials.credential,
+            });
+          }
+
           this.roomId = this.roomIdInput.value.trim() || "default-room";
           this.updateStatus("Connexion en cours...", "connecting");
 

@@ -3,6 +3,7 @@ const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
 const dotenv = require("dotenv");
+const { getTURNCredentials } = require("./turn-service");
 
 dotenv.config();
 const app = express();
@@ -89,6 +90,24 @@ app.use(express.static("./public"));
 app.get("/", (req, res) => {
   console.log(__dirname);
   res.sendFile(__dirname, "/index.html");
+});
+
+app.get("/turn-credentials", async (req, res) => {
+  try {
+    const credentials = await getTURNCredentials();
+    if (!credentials) {
+      return res.status(500).json({ error: "Failed to get TURN credentials" });
+    }
+
+    res.json({
+      username: credentials.username,
+      credential: credentials.password,
+      urls: credentials.urls,
+      ttl: 86400, // 24 heures
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
