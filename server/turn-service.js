@@ -2,8 +2,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 // server/turn-service.js
-const accountSid = process.env.accountSid;
-const authToken = process.env.authToken;
+const accountSid = process.env.AccountSID;
+const authToken = process.env.AuthToken;
 
 console.log({ accountSid, authToken });
 
