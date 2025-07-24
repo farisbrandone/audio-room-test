@@ -228,8 +228,6 @@ wss.on("connection", (ws) => {
 app.use(express.static("./public"));
 
 app.get("/", (req, res) => {
-  console.log(__dirname);
-  console.log("zouzou");
   res.sendFile(path.join(__dirname, "../public", "indexMultiple.html"));
 });
 

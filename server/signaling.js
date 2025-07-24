@@ -4,6 +4,7 @@ const http = require("http");
 const WebSocket = require("ws");
 const dotenv = require("dotenv");
 const { getTURNCredentials } = require("./turn-service");
+const path = require("path");
 
 dotenv.config();
 const app = express();
@@ -88,9 +89,7 @@ wss.on("connection", (ws) => {
 app.use(express.static("./public"));
 
 app.get("/", (req, res) => {
-  console.log(__dirname);
-  console.log("tonton");
-  res.sendFile(__dirname, "/index.html");
+  res.sendFile(path.join(__dirname, "../public", "index0.html"));
 });
 
 app.get("/turn-credentials", async (req, res) => {
