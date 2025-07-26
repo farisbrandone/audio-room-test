@@ -1,49 +1,130 @@
-// server.js
+// server/signaling.js
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
+const dotenv = require("dotenv");
+const { getTURNCredentials } = require("./turn-service");
 const path = require("path");
 
+dotenv.config();
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({
+  server,
+  clientTracking: false, // Désactive le tracking global pour éviter les fuites mémoire
+});
 
-// Stockage des salles et participants
-const rooms = {};
+const rooms = new Map();
 
-// Gestion des connexions WebSocket
+// Optimisation : gestion des heartbeats pour détecter les déconnexions silencieuses
+const HEARTBEAT_INTERVAL = 30000; // 30 secondes
+const CONNECTION_TIMEOUT = 60000; // 60 secondes
+
 wss.on("connection", (ws) => {
-  let userId = null;
   let roomId = null;
+  let userId = null;
+  let heartbeat = null;
 
-  // Gestion des messages
+  // Fonction pour envoyer un ping
+  const sendPing = () => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+      heartbeat = setTimeout(() => {
+        ws.terminate(); // Ferme la connexion si pas de réponse
+      }, CONNECTION_TIMEOUT);
+    }
+  };
+
+  // Démarrer les heartbeats
+  sendPing();
+  const pingInterval = setInterval(sendPing, HEARTBEAT_INTERVAL);
+
+  ws.on("pong", () => {
+    clearTimeout(heartbeat);
+  });
+
   ws.on("message", (data) => {
     try {
       const message = JSON.parse(data);
 
       switch (message.type) {
-        case "get-rooms":
-          handleGetRooms(ws);
-          break;
-
-        case "create-room":
-          handleCreateRoom(ws, message);
-          break;
-
-        case "join-room":
-          handleJoinRoom(ws, message);
+        case "join":
+          roomId = message.room;
           userId = message.userId;
-          roomId = message.roomId;
-          break;
 
-        case "leave-room":
-          handleLeaveRoom(message);
+          if (!rooms.has(roomId)) {
+            rooms.set(roomId, new Map());
+          }
+
+          const room = rooms.get(roomId);
+
+          // Vérifier si l'utilisateur existe déjà
+          if (room.has(userId)) {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                message: "User ID already exists in this room",
+              })
+            );
+            return;
+          }
+
+          room.set(userId, ws);
+
+          // Envoyer la liste des participants existants au nouveau venu
+          const existingPeers = Array.from(room.keys()).filter(
+            (id) => id !== userId
+          );
+          if (existingPeers.length > 0) {
+            ws.send(
+              JSON.stringify({
+                type: "existing-peers",
+                peers: existingPeers,
+              })
+            );
+          }
+
+          // Notifier les autres de l'arrivée du nouveau participant
+          broadcastToRoom(roomId, userId, {
+            type: "new-peer",
+            userId: userId,
+          });
+
           break;
 
         case "offer":
         case "answer":
         case "candidate":
-          forwardMessage(message);
+          if (!roomId || !userId) break;
+
+          // Forwarder uniquement si le destinataire est dans la même salle
+          const targetPeer = rooms.get(roomId)?.get(message.target);
+          if (targetPeer && targetPeer.readyState === WebSocket.OPEN) {
+            targetPeer.send(JSON.stringify(message));
+          }
+          break;
+
+        case "location":
+          // Diffuser la localisation à toute la salle
+          broadcastToRoom(roomId, userId, {
+            type: "location",
+            userId: userId,
+            location: message.location,
+          });
+          break;
+
+        case "ping":
+          // Renvoyer directement le pong sans passer par la salle
+          ws.send(
+            JSON.stringify({
+              type: "pong",
+              id: message.id,
+            })
+          );
+          break;
+
+        case "leave":
+          cleanupPeer(roomId, userId);
           break;
       }
     } catch (error) {
@@ -51,184 +132,57 @@ wss.on("connection", (ws) => {
     }
   });
 
-  // Gestion de la déconnexion
   ws.on("close", () => {
-    if (roomId && userId) {
-      handleLeaveRoom({ roomId, userId });
-    }
+    clearInterval(pingInterval);
+    clearTimeout(heartbeat);
+    cleanupPeer(roomId, userId);
   });
 
-  // Fonctions de gestion
-  function handleGetRooms(ws) {
-    const roomList = Object.keys(rooms).map((roomId) => ({
-      id: roomId,
-      name: rooms[roomId].name,
-      participants: Object.keys(rooms[roomId].participants).length,
-    }));
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+    clearInterval(pingInterval);
+    clearTimeout(heartbeat);
+    cleanupPeer(roomId, userId);
+  });
 
-    ws.send(
-      JSON.stringify({
-        type: "room-list",
-        rooms: roomList,
-      })
-    );
-  }
+  function cleanupPeer(roomId, userId) {
+    if (!roomId || !userId) return;
 
-  function handleCreateRoom(ws, message) {
-    const { roomId, roomName, userId } = message;
+    const room = rooms.get(roomId);
+    if (!room) return;
 
-    if (rooms[roomId]) {
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          message: "Room already exists",
-        })
-      );
-      return;
-    }
+    if (room.delete(userId)) {
+      // Notifier les autres participants
+      broadcastToRoom(roomId, userId, {
+        type: "peer-left",
+        userId: userId,
+      });
 
-    rooms[roomId] = {
-      id: roomId,
-      name: roomName,
-      participants: {},
-    };
-
-    // Notifier tout le monde de la nouvelle salle
-    broadcastRoomList();
-
-    ws.send(
-      JSON.stringify({
-        type: "room-created",
-        roomId,
-        roomName,
-      })
-    );
-  }
-
-  function handleJoinRoom(ws, message) {
-    const { roomId, userId, userName } = message;
-
-    if (!rooms[roomId]) {
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          message: "Room does not exist",
-        })
-      );
-      return;
-    }
-
-    // Ajouter le participant à la salle
-    rooms[roomId].participants[userId] = {
-      id: userId,
-      name: userName,
-      ws: ws,
-    };
-
-    // Récupérer la liste des participants existants
-    const existingUsers = Object.values(rooms[roomId].participants)
-      .filter((user) => user.id !== userId)
-      .map((user) => ({ id: user.id, name: user.name }));
-
-    // Envoyer confirmation au participant
-    ws.send(
-      JSON.stringify({
-        type: "room-joined",
-        roomId,
-        roomName: rooms[roomId].name,
-        existingUsers,
-      })
-    );
-
-    // Notifier les autres participants
-    Object.values(rooms[roomId].participants).forEach((user) => {
-      if (user.id !== userId && user.ws.readyState === WebSocket.OPEN) {
-        user.ws.send(
-          JSON.stringify({
-            type: "user-joined",
-            roomId,
-            userId,
-            userName,
-          })
-        );
+      // Nettoyer la salle si vide
+      if (room.size === 0) {
+        rooms.delete(roomId);
       }
-    });
-
-    // Mettre à jour la liste des salles pour tout le monde
-    broadcastRoomList();
-  }
-
-  function handleLeaveRoom(message) {
-    const { roomId, userId } = message;
-
-    if (!rooms[roomId] || !rooms[roomId].participants[userId]) {
-      return;
-    }
-
-    // Retirer le participant
-    delete rooms[roomId].participants[userId];
-
-    // Notifier les autres participants
-    Object.values(rooms[roomId].participants).forEach((user) => {
-      if (user.ws.readyState === WebSocket.OPEN) {
-        user.ws.send(
-          JSON.stringify({
-            type: "user-left",
-            roomId,
-            userId,
-          })
-        );
-      }
-    });
-
-    // Supprimer la salle si elle est vide
-    if (Object.keys(rooms[roomId].participants).length === 0) {
-      delete rooms[roomId];
-    }
-
-    // Mettre à jour la liste des salles
-    broadcastRoomList();
-  }
-
-  function forwardMessage(message) {
-    const { roomId, toUserId } = message;
-
-    if (!rooms[roomId] || !rooms[roomId].participants[toUserId]) {
-      return;
-    }
-
-    const targetWs = rooms[roomId].participants[toUserId].ws;
-
-    if (targetWs.readyState === WebSocket.OPEN) {
-      targetWs.send(JSON.stringify(message));
     }
   }
 
-  function broadcastRoomList() {
-    const roomList = Object.keys(rooms).map((roomId) => ({
-      id: roomId,
-      name: rooms[roomId].name,
-      participants: Object.keys(rooms[roomId].participants).length,
-    }));
+  // Fonction utilitaire pour diffuser un message à toute la salle
+  function broadcastToRoom(roomId, senderId, message) {
+    const room = rooms.get(roomId);
+    if (!room) return;
 
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(
-          JSON.stringify({
-            type: "room-list",
-            rooms: roomList,
-          })
-        );
+    room.forEach((client, id) => {
+      if (id !== senderId && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
       }
     });
   }
 });
 
-// Servir les fichiers statiques
+// Serve static files from public directory
 app.use(express.static("./public"));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "indexMultiple.html"));
+  res.sendFile(path.join(__dirname, "../public", "indexMultiple2.html"));
 });
 
 app.get("/turn-credentials", async (req, res) => {
@@ -245,12 +199,19 @@ app.get("/turn-credentials", async (req, res) => {
       ttl: 86400, // 24 heures
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("TURN credentials error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Démarrer le serveur
-const PORT = process.env.PORT || 5000;
+// Middleware pour gérer les erreurs 404
+app.use((req, res) => {
+  res.status(404).send("Not found");
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(
+    `Signaling server running on port ${PORT} url: http://localhost:3000`
+  );
 });
