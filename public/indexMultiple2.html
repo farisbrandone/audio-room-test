@@ -586,7 +586,7 @@
 
           this.remoteElements = {}; // Stocke les éléments DOM par userId
           this.remotePositions = {}; // Stocke les positions des participants
-
+          this.pendingCandidates = {};
           // Configuration des serveurs ICE pour les communications internationales
           this.config = {
             iceServers: [
@@ -1107,6 +1107,13 @@
               })
             );
 
+            if (this.pendingCandidates[message.userId]) {
+              for (const candidate of this.pendingCandidates[message.userId]) {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+              delete this.pendingCandidates[message.userId];
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
@@ -1134,6 +1141,13 @@
                 sdp: message.sdp,
               })
             );
+
+            if (this.pendingCandidates[message.userId]) {
+              for (const candidate of this.pendingCandidates[message.userId]) {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+              delete this.pendingCandidates[message.userId];
+            }
           } catch (error) {
             console.error("Erreur de traitement de la réponse:", error);
           }
@@ -1144,7 +1158,17 @@
           if (!pc || !message.candidate) return;
 
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+            // Vérifier si la description distante est définie
+            if (!pc.remoteDescription) {
+              // Stocker les candidats en attente
+              if (!this.pendingCandidates) this.pendingCandidates = {};
+              if (!this.pendingCandidates[message.userId]) {
+                this.pendingCandidates[message.userId] = [];
+              }
+              this.pendingCandidates[message.userId].push(message.candidate);
+            } else {
+              await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+            }
           } catch (error) {
             console.error("Erreur d'ajout du candidat ICE:", error);
           }
@@ -1306,7 +1330,7 @@
         }
 
         stopConnectionMonitoring(peerId) {
-          if (this.connectionMonitors[peerId]) {
+          if (this.connectionMonitors && this.connectionMonitors[peerId]) {
             clearInterval(this.connectionMonitors[peerId]);
             delete this.connectionMonitors[peerId];
           }
@@ -1413,8 +1437,8 @@
 
         removePeer(peerId) {
           // Fermer la connexion peer
-          const pc = this.peerConnections[peerId];
-          if (pc) {
+          if (this.peerConnections && this.peerConnections[peerId]) {
+            const pc = this.peerConnections[peerId];
             pc.close();
             delete this.peerConnections[peerId];
           }
