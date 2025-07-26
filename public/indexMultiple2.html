@@ -537,7 +537,7 @@
 
       <footer>
         <p>
-          Powered by WebRTC | Optimisé pour les communications internationales
+          Powered by Faris | Optimisé pour les communications internationales
         </p>
       </footer>
     </div>
@@ -1352,13 +1352,13 @@
           this.renderWorldMap();
         } */
 
-        /*  updatePeerLocation(peerId, location) {
-        if (this.remoteElements[peerId]) {
-            this.remoteElements[peerId].location.textContent = location;
-        }
-    } */
-
         updatePeerLocation(peerId, location) {
+          if (this.remoteElements[peerId]) {
+            this.remoteElements[peerId].location.textContent = location;
+          }
+        }
+
+        /*    updatePeerLocation(peerId, location) {
           if (this.remoteElements[peerId]) {
             this.remoteElements[peerId].location.textContent = location;
 
@@ -1373,7 +1373,7 @@
               }
             });
           }
-        }
+        } */
 
         // Fonctions utilitaires pour la conversion
         normalizeLongitude(longitude) {
