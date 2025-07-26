@@ -801,7 +801,8 @@
 
           this.socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
-            console.log({ message });
+
+            console.log("Message reçu:", message); // Log pour débogage
             switch (message.type) {
               case "new-peer":
                 this.handleNewPeer(message.userId);
@@ -809,7 +810,9 @@
 
               case "existing-peers":
                 message.peers.forEach((peerId) => {
-                  this.handleNewPeer(peerId);
+                  if (peerId !== this.userId) {
+                    this.handleNewPeer(peerId);
+                  }
                 });
                 break;
 
@@ -845,6 +848,7 @@
         }
 
         async handleNewPeer(peerId) {
+          console.log("Nouveau pair détecté:", peerId);
           if (peerId === this.userId || this.peerConnections[peerId]) return;
 
           // Création des éléments UI pour le nouveau participant
@@ -1189,6 +1193,14 @@
         } */
 
         handleRemoteStream(stream, peerId) {
+          console.log(
+            "Flux reçu de",
+            peerId,
+            "avec",
+            stream.getTracks().length,
+            "pistes"
+          );
+
           if (this.remoteElements[peerId]) {
             // Réinitialiser l'élément audio
             const audio = this.remoteElements[peerId].audio;
@@ -1227,6 +1239,15 @@
               window.webkitAudioContext)();
           }
 
+          // Vérifier que le contexte n'est pas suspendu
+          if (this.audioContext.state === "suspended") {
+            this.audioContext.resume().then(() => {
+              console.log("Contexte audio repris");
+              this.setupRemoteVisualization(stream, peerId);
+            });
+            return;
+          }
+
           // Vérifier que le flux a des pistes audio actives
           if (stream.getAudioTracks().length === 0) {
             console.error("Aucune piste audio dans le flux distant");
@@ -1239,7 +1260,9 @@
             source.connect(analyser);
             analyser.fftSize = 64;
 
-            this.visualizeAudio(this.remoteElements[peerId].viz, analyser);
+            /* this.visualizeAudio(this.remoteElements[peerId].viz, analyser); */
+            const vizContainer = this.remoteElements[peerId].viz;
+            this.visualizeAudio(vizContainer, analyser);
           } catch (error) {
             console.error(
               "Erreur de configuration de la visualisation distante:",
@@ -1266,10 +1289,9 @@
         }
  */
         visualizeAudio(container, analyser) {
+          container.innerHTML = "";
           const bufferLength = analyser.frequencyBinCount;
           const dataArray = new Uint8Array(bufferLength);
-          container.innerHTML = "";
-
           // Créer les barres de visualisation
           const barWidth = container.clientWidth / bufferLength;
           for (let i = 0; i < bufferLength; i++) {
@@ -1283,6 +1305,7 @@
           const bars = container.querySelectorAll(".visualizer-bar");
 
           const draw = () => {
+            if (!analyser) return;
             requestAnimationFrame(draw);
             analyser.getByteFrequencyData(dataArray);
 

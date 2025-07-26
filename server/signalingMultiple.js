@@ -58,38 +58,30 @@ wss.on("connection", (ws) => {
 
           const room = rooms.get(roomId);
 
-          // Vérifier si l'utilisateur existe déjà
-          if (room.has(userId)) {
-            ws.send(
-              JSON.stringify({
-                type: "error",
-                message: "User ID already exists in this room",
-              })
-            );
-            return;
-          }
+          // Envoyer TOUJOURS la liste des pairs existants
+          const existingPeers = Array.from(room.keys());
+          console.log(`Nouvel utilisateur ${userId} dans ${roomId}`);
+          console.log(`Pairs existants: ${existingPeers.join(", ")}`);
+          ws.send(
+            JSON.stringify({
+              type: "existing-peers",
+              peers: existingPeers,
+            })
+          );
 
           room.set(userId, ws);
 
-          // Envoyer la liste des participants existants au nouveau venu
-          const existingPeers = Array.from(room.keys()).filter(
-            (id) => id !== userId
-          );
-          if (existingPeers.length > 0) {
-            ws.send(
-              JSON.stringify({
-                type: "existing-peers",
-                peers: existingPeers,
-              })
-            );
-          }
-
-          // Notifier les autres de l'arrivée du nouveau participant
-          broadcastToRoom(roomId, userId, {
-            type: "new-peer",
-            userId: userId,
+          // Notifier les autres (sauf le nouveau)
+          room.forEach((client, id) => {
+            if (id !== userId) {
+              client.send(
+                JSON.stringify({
+                  type: "new-peer",
+                  userId: userId,
+                })
+              );
+            }
           });
-
           break;
 
         case "offer":
