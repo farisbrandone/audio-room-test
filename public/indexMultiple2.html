@@ -737,6 +737,7 @@
         }
 
         async joinRoom() {
+          await this.resumeAudioContext();
           const turnCredentials = await this.getTURNCredentials();
 
           if (turnCredentials) {
@@ -889,9 +890,18 @@
           };
 
           pc.onconnectionstatechange = () => {
+            console.log(
+              `État de connexion avec ${peerId}: ${pc.connectionState}`
+            );
+
             if (pc.connectionState === "connected") {
+              console.log("Connexion établie avec", peerId);
               this.startConnectionMonitoring(pc, peerId);
-            } else if (pc.connectionState === "disconnected") {
+            } else if (
+              pc.connectionState === "disconnected" ||
+              pc.connectionState === "failed" ||
+              pc.connectionState === "closed"
+            ) {
               this.stopConnectionMonitoring(peerId);
             }
           };
@@ -1009,9 +1019,9 @@
 
         prioritizeCodec(sdp, codec) {
           const codecMap = {
-            opus: "OPUS",
-            PCMU: "PCMU",
-            ISAC: "ISAC",
+            opus: "OPUS/48000",
+            PCMU: "PCMU/8000",
+            ISAC: "ISAC/16000",
           };
 
           const targetCodec = codecMap[codec];
@@ -1027,27 +1037,26 @@
               continue;
             }
 
-            if (
-              mLineIndex !== -1 &&
-              lines[i].startsWith("a=rtpmap") &&
-              lines[i].includes(targetCodec)
-            ) {
-              const payloadType = lines[i].split(" ")[0].split(":")[1];
+            if (mLineIndex !== -1 && lines[i].startsWith("a=rtpmap")) {
+              if (lines[i].includes(targetCodec)) {
+                const payloadType = lines[i].split(":")[1].split(" ")[0];
 
-              // Déplacer le codec en première position
-              const mLineParts = lines[mLineIndex].split(" ");
-              const newMLine = [mLineParts[0], mLineParts[1]];
-              newMLine.push(payloadType);
+                // Réorganiser la ligne m=audio
+                const mLineParts = lines[mLineIndex].split(" ");
+                const newMLine = [mLineParts[0], mLineParts[1]];
+                newMLine.push(payloadType); // Mettre le codec prioritaire en premier
 
-              for (let j = 3; j < mLineParts.length; j++) {
-                if (mLineParts[j] !== payloadType) {
-                  newMLine.push(mLineParts[j]);
+                // Ajouter les autres payloads
+                for (let j = 3; j < mLineParts.length; j++) {
+                  if (mLineParts[j] !== payloadType) {
+                    newMLine.push(mLineParts[j]);
+                  }
                 }
-              }
 
-              lines[mLineIndex] = newMLine.join(" ");
-              codecFound = true;
-              break;
+                lines[mLineIndex] = newMLine.join(" ");
+                codecFound = true;
+                break;
+              }
             }
           }
 
@@ -1180,9 +1189,18 @@
         } */
 
         handleRemoteStream(stream, peerId) {
-          // Attribution du flux à l'élément audio correspondant
           if (this.remoteElements[peerId]) {
-            this.remoteElements[peerId].audio.srcObject = stream;
+            // Réinitialiser l'élément audio
+            const audio = this.remoteElements[peerId].audio;
+            audio.srcObject = null;
+            audio.srcObject = stream;
+
+            // Forcer la lecture
+            audio.play().catch((error) => {
+              console.log("Lecture audio automatique bloquée:", error);
+              // Afficher un bouton de déblocage si nécessaire
+            });
+
             this.setupRemoteVisualization(stream, peerId);
           }
         }
@@ -1204,14 +1222,36 @@
         }
 
         setupRemoteVisualization(stream, peerId) {
-          if (!this.audioContext || !this.remoteElements[peerId]) return;
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+          }
 
-          const analyser = this.audioContext.createAnalyser();
-          const source = this.audioContext.createMediaStreamSource(stream);
-          source.connect(analyser);
-          analyser.fftSize = 64;
+          // Vérifier que le flux a des pistes audio actives
+          if (stream.getAudioTracks().length === 0) {
+            console.error("Aucune piste audio dans le flux distant");
+            return;
+          }
 
-          this.visualizeAudio(this.remoteElements[peerId].viz, analyser);
+          try {
+            const analyser = this.audioContext.createAnalyser();
+            const source = this.audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            analyser.fftSize = 64;
+
+            this.visualizeAudio(this.remoteElements[peerId].viz, analyser);
+          } catch (error) {
+            console.error(
+              "Erreur de configuration de la visualisation distante:",
+              error
+            );
+          }
+        }
+
+        async resumeAudioContext() {
+          if (this.audioContext && this.audioContext.state === "suspended") {
+            await this.audioContext.resume();
+          }
         }
 
         /*  setupRemoteVisualization(stream) {
