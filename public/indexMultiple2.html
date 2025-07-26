@@ -801,7 +801,7 @@
 
           this.socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
-
+            console.log({ message });
             switch (message.type) {
               case "new-peer":
                 this.handleNewPeer(message.userId);
