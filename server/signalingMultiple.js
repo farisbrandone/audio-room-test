@@ -46,7 +46,7 @@ wss.on("connection", (ws) => {
   ws.on("message", (data) => {
     try {
       const message = JSON.parse(data);
-
+      console.log(`Message reçu de ${userId || "nouveau client"}:`, message);
       switch (message.type) {
         case "join":
           roomId = message.room;
@@ -69,6 +69,7 @@ wss.on("connection", (ws) => {
             })
           );
 
+          // Ajouter le nouveau client à la salle
           room.set(userId, ws);
 
           // Notifier les autres (sauf le nouveau)

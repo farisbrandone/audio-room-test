@@ -413,6 +413,22 @@
         background: rgba(30, 30, 46, 0.5);
       }
 
+      .audio-play-button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        margin-top: 10px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.3s;
+      }
+
+      .audio-play-button:hover {
+        background: var(--secondary);
+      }
+
       /* Responsive */
       @media (max-width: 768px) {
         .participants-container {
@@ -868,12 +884,13 @@
           this.peerConnections[peerId] = pc;
 
           // Ajouter les pistes locales
-          this.localStream.getTracks().forEach((track) => {
+          this.localStream.getAudioTracks().forEach((track) => {
             pc.addTrack(track, this.localStream);
           });
 
           // Configurer les gestionnaires d'événements
           pc.onicecandidate = (event) => {
+            console.log("zouzou");
             if (event.candidate) {
               this.socket.send(
                 JSON.stringify({
@@ -928,7 +945,7 @@
               sdp = this.prioritizeCodec(sdp, this.selectedCodec);
             }
 
-            await pc.setLocalDescription({ type: "offer", sdp });
+            await pc.setLocalDescription(offer /* { type: "offer", sdp } */);
 
             this.socket.send(
               JSON.stringify({
@@ -1068,6 +1085,7 @@
         }
 
         async handleOffer(message) {
+          console.log("Reçu offre de:", message.userId);
           const peerId = message.userId;
           if (this.peerConnections[peerId]) return;
 
@@ -1080,7 +1098,7 @@
           this.peerConnections[peerId] = pc;
 
           // Ajouter les pistes locales
-          this.localStream.getTracks().forEach((track) => {
+          this.localStream.getAudioTracks().forEach((track) => {
             pc.addTrack(track, this.localStream);
           });
 
@@ -1201,17 +1219,41 @@
             "pistes"
           );
 
+          if (!this.remoteElements[peerId]) return;
+
           if (this.remoteElements[peerId]) {
             // Réinitialiser l'élément audio
             const audio = this.remoteElements[peerId].audio;
-            audio.srcObject = null;
+
             audio.srcObject = stream;
 
-            // Forcer la lecture
-            audio.play().catch((error) => {
+            const playAudio = () => {
+              audio.play().catch((error) => {
+                console.log("Échec de la lecture automatique:", error);
+
+                // Créer un bouton de déblocage si nécessaire
+                if (!this.remoteElements[peerId].playButton) {
+                  const button = document.createElement("button");
+                  button.textContent = "Activer l'audio";
+                  button.className = "audio-play-button";
+                  button.onclick = () => {
+                    audio.play();
+                    button.remove();
+                  };
+                  this.remoteElements[peerId].container.appendChild(button);
+                  this.remoteElements[peerId].playButton = button;
+                }
+              });
+            };
+
+            playAudio();
+            /*  audio.play().catch((error) => {
               console.log("Lecture audio automatique bloquée:", error);
-              // Afficher un bouton de déblocage si nécessaire
-            });
+              
+            }); */
+
+            // Réessayer après un délai
+            setTimeout(playAudio, 1000);
 
             this.setupRemoteVisualization(stream, peerId);
           }
@@ -1234,12 +1276,13 @@
         }
 
         setupRemoteVisualization(stream, peerId) {
+          console.log("Configuration de la visualisation pour:", peerId);
+
           if (!this.audioContext) {
             this.audioContext = new (window.AudioContext ||
               window.webkitAudioContext)();
           }
 
-          // Vérifier que le contexte n'est pas suspendu
           if (this.audioContext.state === "suspended") {
             this.audioContext.resume().then(() => {
               console.log("Contexte audio repris");
@@ -1248,7 +1291,6 @@
             return;
           }
 
-          // Vérifier que le flux a des pistes audio actives
           if (stream.getAudioTracks().length === 0) {
             console.error("Aucune piste audio dans le flux distant");
             return;
