@@ -26,22 +26,22 @@ wss.on("connection", (ws) => {
   let heartbeat = null;
 
   // Fonction pour envoyer un ping
-  const sendPing = () => {
+  /*  const sendPing = () => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.ping();
       heartbeat = setTimeout(() => {
         ws.terminate(); // Ferme la connexion si pas de réponse
       }, CONNECTION_TIMEOUT);
     }
-  };
+  }; */
 
   // Démarrer les heartbeats
-  sendPing();
+  /*  sendPing();
   const pingInterval = setInterval(sendPing, HEARTBEAT_INTERVAL);
 
   ws.on("pong", () => {
     clearTimeout(heartbeat);
-  });
+  }); */
 
   ws.on("message", (data) => {
     try {
@@ -53,13 +53,13 @@ wss.on("connection", (ws) => {
           userId = message.userId;
 
           if (!rooms.has(roomId)) {
-            rooms.set(roomId, new Map());
+            rooms.set(roomId, new Map()); //cree la salle lorqu'elle n'existe pas et lui associe un id=roomId et  l'espace map d'enregistrement de chaque rtilisateur avec son websocket qui sont les element de la salle
           }
 
           const room = rooms.get(roomId);
 
           // Envoyer TOUJOURS la liste des pairs existants
-          const existingPeers = Array.from(room.keys());
+          const existingPeers = Array.from(room.keys()); // recupère et mets dans un tableau tous les id des utilisateur de la salle donc les valeur sont leur websocket crée lorsqu'il sesont connecté
           console.log(`Nouvel utilisateur ${userId} dans ${roomId}`);
           console.log(`Pairs existants: ${existingPeers.join(", ")}`);
           ws.send(
@@ -106,14 +106,14 @@ wss.on("connection", (ws) => {
           });
           break;
 
-        case "ping":
+          /*   case "ping":
           // Renvoyer directement le pong sans passer par la salle
           ws.send(
             JSON.stringify({
               type: "pong",
               id: message.id,
             })
-          );
+          ); */
           break;
 
         case "leave":

@@ -463,8 +463,8 @@
         />
         <select id="codecSelect">
           <option value="opus">Opus (Qualité optimale)</option>
-          <option value="PCMU">PCMU (Compatibilité maximale)</option>
-          <option value="ISAC">iSAC (Faible latence)</option>
+          <!--  <option value="PCMU">PCMU (Compatibilité maximale)</option>
+          <option value="ISAC">iSAC (Faible latence)</option> -->
         </select>
         <button id="joinBtn">
           <i class="fas fa-sign-in-alt"></i>
@@ -769,19 +769,24 @@
 
           try {
             // Configuration audio optimisée pour les longues distances
+            //definition du stream de recupération du song dans les cannaux audio branche
+            //demnder l'acces au microphone de l'utilisateur
+            //si il accepte, configurer le traitement du flux audio
+            // le recupérer une fois le traitement de la configuration effectué
+            // et retourné ce flux audio a localStream
             this.localStream = await navigator.mediaDevices.getUserMedia({
               audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
                 autoGainControl: true,
-                channelCount: 1,
+                channelCount: 1, //n'utilise qu'un canal au branché sur l'appareil (microphone ou webcam)
                 latency: 0.02,
               },
               video: false,
             });
 
-            this.setupAudioVisualization();
-            this.connectToSignalingServer();
+            this.setupAudioVisualization(); //mise en place de l'animation de la visualisation audio qui est connecté au entrée audio
+            this.connectToSignalingServer(); // connection au server et envoie du roomId pour se connecter au server avec l'identifiant de l'utilisateur
 
             this.joinBtn.disabled = true;
             this.leaveBtn.disabled = false;
@@ -827,7 +832,7 @@
               case "existing-peers":
                 message.peers.forEach((peerId) => {
                   if (peerId !== this.userId) {
-                    this.handleNewPeer(peerId);
+                    this.handleNewPeer(peerId); //gere tous les utilisateur a travers leur userId=peerId
                   }
                 });
                 break;
@@ -879,9 +884,12 @@
             })
           );
 
-          // Créer une nouvelle connexion peer-to-peer
+          // Créer une nouvelle connexion peer-to-peer, creation du canal de communication avec cette nouvelle pair
           const pc = new RTCPeerConnection(this.config);
+          //ajout du champ des peerId connecté à la meme salle que moi
           this.peerConnections[peerId] = pc;
+          //verifier que toutes les pairs ont un websocket de communication
+          console.log(this.peerConnections);
 
           // Ajouter les pistes locales
           this.localStream.getAudioTracks().forEach((track) => {
@@ -1012,6 +1020,7 @@
 
           // Élément audio
           const audio = document.createElement("audio");
+          audio.id = `audio-${peerId}`;
           audio.autoplay = true;
           audio.volume = this.isDeafened ? 0 : 1;
 
@@ -1036,6 +1045,7 @@
             x: 0.2 + Math.random() * 0.6,
             y: 0.2 + Math.random() * 0.6,
           };
+          return audio;
         }
 
         prioritizeCodec(sdp, codec) {
@@ -1090,9 +1100,8 @@
           if (this.peerConnections[peerId]) return;
 
           // Créer les éléments UI si nécessaire
-          if (!this.remoteElements[peerId]) {
-            this.createRemoteElements(peerId);
-          }
+
+          const audio = this.createRemoteElements(peerId);
 
           const pc = new RTCPeerConnection(this.config);
           this.peerConnections[peerId] = pc;
@@ -1117,7 +1126,7 @@
 
           pc.ontrack = (event) => {
             if (event.streams && event.streams[0]) {
-              this.handleRemoteStream(event.streams[0], peerId);
+              this.handleRemoteStream(event.streams[0], peerId, audio);
               //.remoteLocation.textContent = this.remoteLocationText;
             }
           };
@@ -1210,7 +1219,7 @@
           this.setupRemoteVisualization(stream);
         } */
 
-        handleRemoteStream(stream, peerId) {
+        handleRemoteStream(stream, peerId, audio) {
           console.log(
             "Flux reçu de",
             peerId,
@@ -1219,11 +1228,14 @@
             "pistes"
           );
 
-          if (!this.remoteElements[peerId]) return;
+          if (!this.remoteElements[peerId]) {
+            console.log("la peerId n'existe et n'arrive pas");
+            return;
+          }
 
           if (this.remoteElements[peerId]) {
             // Réinitialiser l'élément audio
-            const audio = this.remoteElements[peerId].audio;
+            //const audio = this.remoteElements[peerId].audio;
 
             audio.srcObject = stream;
 
@@ -1238,6 +1250,7 @@
                   button.className = "audio-play-button";
                   button.onclick = () => {
                     audio.play();
+                    console.log("audio play button is remove");
                     button.remove();
                   };
                   this.remoteElements[peerId].container.appendChild(button);
@@ -1253,9 +1266,9 @@
             }); */
 
             // Réessayer après un délai
-            setTimeout(playAudio, 1000);
+            //setTimeout(playAudio, 1000);
 
-            this.setupRemoteVisualization(stream, peerId);
+            this.setupRemoteVisualization(stream, peerId, audio);
           }
         }
 
@@ -1275,7 +1288,7 @@
           this.visualizeAudio(this.localViz, this.analyser);
         }
 
-        setupRemoteVisualization(stream, peerId) {
+        setupRemoteVisualization(stream, peerId, audio) {
           console.log("Configuration de la visualisation pour:", peerId);
 
           if (!this.audioContext) {
