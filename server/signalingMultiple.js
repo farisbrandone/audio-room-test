@@ -51,7 +51,7 @@ wss.on("connection", (ws) => {
         case "join":
           roomId = message.room;
           userId = message.userId;
-
+          console.log({ hasRoomId: rooms.has(roomId) });
           if (!rooms.has(roomId)) {
             rooms.set(roomId, new Map()); //cree la salle lorqu'elle n'existe pas et lui associe un id=roomId et  l'espace map d'enregistrement de chaque rtilisateur avec son websocket qui sont les element de la salle
           }
@@ -60,6 +60,7 @@ wss.on("connection", (ws) => {
 
           // Envoyer TOUJOURS la liste des pairs existants
           const existingPeers = Array.from(room.keys()); // recupère et mets dans un tableau tous les id des utilisateur de la salle donc les valeur sont leur websocket crée lorsqu'il sesont connecté
+          console.log({ existingPeers });
           console.log(`Nouvel utilisateur ${userId} dans ${roomId}`);
           console.log(`Pairs existants: ${existingPeers.join(", ")}`);
           ws.send(
@@ -68,19 +69,22 @@ wss.on("connection", (ws) => {
               peers: existingPeers,
             })
           );
-
+          console.log("moumou");
           // Ajouter le nouveau client à la salle
           room.set(userId, ws);
-
+          console.log("moumou2");
           // Notifier les autres (sauf le nouveau)
           room.forEach((client, id) => {
+            console.log({ userId, id });
             if (id !== userId) {
+              console.log("okokokok");
               client.send(
                 JSON.stringify({
                   type: "new-peer",
                   userId: userId,
                 })
               );
+              console.log("okokokok2");
             }
           });
           break;
