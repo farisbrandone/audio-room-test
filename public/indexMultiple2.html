@@ -873,7 +873,7 @@
           if (peerId === this.userId || this.peerConnections[peerId]) return;
 
           // Création des éléments UI pour le nouveau participant
-          this.createRemoteElements(peerId);
+          const audio = this.createRemoteElements(peerId);
 
           // Envoyer notre localisation
           this.socket.send(
@@ -912,8 +912,10 @@
           };
 
           pc.ontrack = (event) => {
+            console.log("poupou");
             if (event.streams && event.streams[0]) {
-              this.handleRemoteStream(event.streams[0], peerId);
+              console.log("nounou");
+              this.handleRemoteStream(event.streams[0], peerId, audio);
               //this.remoteLocation.textContent = this.remoteLocationText;
             }
           };
