@@ -841,8 +841,11 @@
           };
 
           pc.ontrack = (event) => {
+            console.log("cocacola");
             if (event.streams && event.streams[0]) {
+              console.log("cocacola2");
               this.handleRemoteStream(event.streams[0]);
+              console.log("cocacola2");
               this.remoteLocation.textContent = this.remoteLocationText;
             }
           };
