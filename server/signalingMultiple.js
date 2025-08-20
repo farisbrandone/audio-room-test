@@ -126,14 +126,14 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    clearInterval(pingInterval);
+    //clearInterval(pingInterval);
     clearTimeout(heartbeat);
     cleanupPeer(roomId, userId);
   });
 
   ws.on("error", (error) => {
     console.error("WebSocket error:", error);
-    clearInterval(pingInterval);
+    //clearInterval(pingInterval);
     clearTimeout(heartbeat);
     cleanupPeer(roomId, userId);
   });

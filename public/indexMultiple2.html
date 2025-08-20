@@ -753,9 +753,12 @@
         }
 
         async joinRoom() {
+          console.log("takato");
           await this.resumeAudioContext();
+          console.log("takato1");
           const turnCredentials = await this.getTURNCredentials();
-
+          console.log("takato2");
+          console.log({ turnCredentials });
           if (turnCredentials) {
             this.config.iceServers.push({
               urls: turnCredentials.urls,
@@ -763,10 +766,10 @@
               credential: turnCredentials.credential,
             });
           }
-
+          console.log("takato3");
           this.roomId = this.roomIdInput.value.trim() || "default-room";
           this.updateStatus("Connexion en cours...", "connecting");
-
+          console.log("takato4");
           try {
             // Configuration audio optimisée pour les longues distances
             //definition du stream de recupération du song dans les cannaux audio branche
@@ -784,10 +787,11 @@
               },
               video: false,
             });
-
+            console.log("takato5");
             this.setupAudioVisualization(); //mise en place de l'animation de la visualisation audio qui est connecté au entrée audio
+            console.log("takato6");
             this.connectToSignalingServer(); // connection au server et envoie du roomId pour se connecter au server avec l'identifiant de l'utilisateur
-
+            console.log("takato7");
             this.joinBtn.disabled = true;
             this.leaveBtn.disabled = false;
           } catch (error) {
@@ -797,17 +801,20 @@
         }
 
         connectToSignalingServer() {
+          console.log("connectToSignal1");
           // Pour une application réelle, vous devriez remplacer cette URL par votre serveur WebSocket
           const wsProtocol =
             window.location.protocol === "https:" ? "wss:" : "ws:";
           const wsHost = window.location.host;
           this.socket = new WebSocket(`${wsProtocol}//${wsHost}`);
-
+          console.log("connectToSignal2");
           this.socket.onopen = () => {
+            console.log("connectToSignalsocket.onopen1");
             this.updateStatus(
               `Connecté à la salle: ${this.roomId}`,
               "connected"
             );
+            console.log("connectToSignalsocket.onopen2");
             this.socket.send(
               JSON.stringify({
                 type: "join",
@@ -815,7 +822,7 @@
                 userId: this.userId,
               })
             );
-
+            console.log("connectToSignalsocket.onopen3");
             // Afficher les informations de connexion
             this.connectionInfo.classList.remove("hidden");
           };
@@ -826,10 +833,12 @@
             console.log("Message reçu:", message); // Log pour débogage
             switch (message.type) {
               case "new-peer":
+                console.log("popo");
                 this.handleNewPeer(message.userId);
                 break;
 
               case "existing-peers":
+                console.log("toto");
                 message.peers.forEach((peerId) => {
                   if (peerId !== this.userId) {
                     this.handleNewPeer(peerId); //gere tous les utilisateur a travers leur userId=peerId
@@ -896,6 +905,7 @@
             pc.addTrack(track, this.localStream);
           });
 
+          console.log("zozo");
           // Configurer les gestionnaires d'événements
           pc.onicecandidate = (event) => {
             console.log("zouzou");
