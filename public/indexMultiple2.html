@@ -840,11 +840,16 @@
               case "existing-peers":
                 console.log("case existing-peers");
                 console.log({ peer: message.peers });
-                message.peers.forEach((peerId) => {
+                if (message.peers.length > 0) {
+                  this.handleExistingPeers(
+                    message.peers.filter((peerId) => peerId !== this.userId)
+                  );
+                }
+                /*  message.peers.forEach((peerId) => {
                   if (peerId !== this.userId) {
-                    this.handleNewPeer(peerId); //gere tous les utilisateur a travers leur userId=peerId
+                    this.handleNewPeer(peerId); 
                   }
-                });
+                }); */
                 break;
 
               case "offer":
@@ -900,7 +905,7 @@
           this.peerConnections[peerId] = pc;
           //verifier que toutes les pairs ont un websocket de communication
           console.log(this.peerConnections);
-          console.log("acoté de pc.ontrack");
+          /*  console.log("acoté de pc.ontrack");
           pc.ontrack = (event) => {
             console.log("poupou");
             if (event.streams && event.streams[0]) {
@@ -908,12 +913,13 @@
               this.handleRemoteStream(event.streams[0], peerId, audio);
               this.remoteLocation.textContent = this.remoteLocationText;
             }
-          };
+          }; */
           // Ajouter les pistes locales
-          this.localStream.getAudioTracks().forEach((track) => {
-            console.log("part of track");
-            pc.addTrack(track, this.localStream);
-          });
+          if (this.localStream) {
+            this.localStream.getAudioTracks().forEach((track) => {
+              pc.addTrack(track, this.localStream);
+            });
+          }
 
           console.log("zozo");
           // Configurer les gestionnaires d'événements
@@ -930,7 +936,7 @@
               );
             }
           };
-          /*  console.log("acoté de pc.ontrack");
+          console.log("acoté de pc.ontrack");
           pc.ontrack = (event) => {
             console.log("poupou");
             if (event.streams && event.streams[0]) {
@@ -938,7 +944,7 @@
               this.handleRemoteStream(event.streams[0], peerId, audio);
               this.remoteLocation.textContent = this.remoteLocationText;
             }
-          }; */
+          };
 
           console.log("ganga");
 
@@ -959,7 +965,7 @@
             }
           };
 
-          // Créer une offre
+          // Créer une offre pour le nouveau le nouveau pair
           try {
             const offer = await pc.createOffer({
               offerToReceiveAudio: 1,
@@ -977,7 +983,7 @@
               sdp = this.prioritizeCodec(sdp, this.selectedCodec);
             }
 
-            await pc.setLocalDescription(offer /* { type: "offer", sdp } */);
+            await pc.setLocalDescription(/* offer */ { type: "offer", sdp });
 
             this.socket.send(
               JSON.stringify({
@@ -989,6 +995,82 @@
             );
           } catch (error) {
             console.error("Erreur de création de l'offre:", error);
+          }
+        }
+
+        async handleExistingPeers(peerIds) {
+          console.log("Pairs existants détectés:", peerIds);
+
+          for (const peerId of peerIds) {
+            if (peerId === this.userId || this.peerConnections[peerId])
+              continue;
+
+            // Création des éléments UI pour le participant existant
+            const audio = this.createRemoteElements(peerId);
+
+            // Envoyer notre localisation
+            this.socket.send(
+              JSON.stringify({
+                type: "location",
+                location: this.localLocation.textContent,
+                target: peerId,
+              })
+            );
+
+            // Créer une nouvelle connexion peer-to-peer
+            const pc = new RTCPeerConnection(this.config);
+            this.peerConnections[peerId] = pc;
+
+            // Ajouter les pistes locales
+            if (this.localStream) {
+              this.localStream.getAudioTracks().forEach((track) => {
+                pc.addTrack(track, this.localStream);
+              });
+            }
+
+            // Configurer les gestionnaires d'événements
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                this.socket.send(
+                  JSON.stringify({
+                    type: "candidate",
+                    target: peerId,
+                    candidate: event.candidate,
+                    userId: this.userId,
+                  })
+                );
+              }
+            };
+
+            pc.ontrack = (event) => {
+              console.log("for existing peers0");
+              if (event.streams && event.streams[0]) {
+                console.log("for existing peers1");
+                this.handleRemoteStream(event.streams[0], peerId, audio);
+                this.remoteLocation.textContent = this.remoteLocationText;
+              }
+            };
+
+            pc.onconnectionstatechange = () => {
+              console.log(
+                `État de connexion avec ${peerId}: ${pc.connectionState}`
+              );
+
+              if (pc.connectionState === "connected") {
+                console.log("Connexion établie avec", peerId);
+                this.startConnectionMonitoring(pc, peerId);
+              } else if (
+                pc.connectionState === "disconnected" ||
+                pc.connectionState === "failed" ||
+                pc.connectionState === "closed"
+              ) {
+                this.stopConnectionMonitoring(peerId);
+              }
+            };
+
+            // Pour les pairs existants, on attend une offre plutôt que d'en créer une
+            // On configure simplement la connexion et on attend
+            console.log(`En attente d'une offre du pair existant: ${peerId}`);
           }
         }
 
@@ -1119,6 +1201,91 @@
         }
 
         async handleOffer(message) {
+          const { userId, sdp } = message;
+          console.log("Offre reçue de:", userId);
+
+          // Vérifier si nous avons déjà une connexion avec ce pair
+          if (!this.peerConnections[userId]) {
+            // Créer une nouvelle connexion pour ce pair
+            const audio = this.createRemoteElements(userId);
+            const pc = new RTCPeerConnection(this.config);
+            this.peerConnections[userId] = pc;
+
+            // Ajouter les pistes locales
+            if (this.localStream) {
+              this.localStream.getAudioTracks().forEach((track) => {
+                pc.addTrack(track, this.localStream);
+              });
+            }
+
+            // Configurer les gestionnaires d'événements
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                this.socket.send(
+                  JSON.stringify({
+                    type: "candidate",
+                    target: userId,
+                    candidate: event.candidate,
+                    userId: this.userId,
+                  })
+                );
+              }
+            };
+
+            pc.ontrack = (event) => {
+              if (event.streams && event.streams[0]) {
+                this.handleRemoteStream(event.streams[0], userId, audio);
+                this.remoteLocation.textContent = this.remoteLocationText;
+              }
+            };
+
+            pc.onconnectionstatechange = () => {
+              console.log(
+                `État de connexion avec ${userId}: ${pc.connectionState}`
+              );
+
+              if (pc.connectionState === "connected") {
+                console.log("Connexion établie avec", userId);
+                this.startConnectionMonitoring(pc, userId);
+              } else if (
+                pc.connectionState === "disconnected" ||
+                pc.connectionState === "failed" ||
+                pc.connectionState === "closed"
+              ) {
+                this.stopConnectionMonitoring(userId);
+              }
+            };
+          }
+
+          const pc = this.peerConnections[userId];
+
+          try {
+            // Définir l'offre reçue comme description distante
+            await pc.setRemoteDescription({ type: "offer", sdp: sdp });
+
+            // Créer une réponse
+            const answer = await pc.createAnswer();
+
+            // Appliquer la réponse comme description locale
+            await pc.setLocalDescription(answer);
+
+            // Envoyer la réponse au pair via le serveur de signalisation
+            this.socket.send(
+              JSON.stringify({
+                type: "answer",
+                target: userId,
+                sdp: answer.sdp,
+                userId: this.userId,
+              })
+            );
+
+            console.log("Réponse envoyée à:", userId);
+          } catch (error) {
+            console.error("Erreur lors du traitement de l'offre:", error);
+          }
+        }
+
+        /*   async handleOffer(message) {
           console.log("Reçu offre de:", message.userId);
           const peerId = message.userId;
           if (this.peerConnections[peerId]) return;
@@ -1193,10 +1360,24 @@
             console.error("Erreur de traitement de l'offre:", error);
           }
         }
-
+ */
         async handleAnswer(message) {
+          console.log("reponse recus");
           const pc = this.peerConnections[message.userId];
-          if (!pc) return;
+          if (!pc) {
+            console.error(
+              "Aucune connexion PeerConnection trouvée pour:",
+              userId
+            );
+            return;
+          }
+
+          // Vérifier l'état actuel de la connexion
+          if (pc.signalingState !== "have-local-offer") {
+            console.warn("État de signalisation inattendu:", pc.signalingState);
+            // Dans certains cas, il peut être nécessaire de redémarrer la négociation
+            return;
+          }
 
           try {
             await pc.setRemoteDescription(
@@ -1206,19 +1387,40 @@
               })
             );
 
-            if (this.pendingCandidates[message.userId]) {
+            /*   if (this.pendingCandidates[message.userId]) {
               for (const candidate of this.pendingCandidates[message.userId]) {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
               }
               delete this.pendingCandidates[message.userId];
-            }
+            } */
           } catch (error) {
-            console.error("Erreur de traitement de la réponse:", error);
+            console.error(
+              "Erreur lors de la définition de la description distante:",
+              error
+            );
+
+            // Gestion des erreurs spécifiques
+            if (error.toString().includes("InvalidAccessError")) {
+              console.error("Erreur d'accès - la session a peut-être expiré");
+            } else if (error.toString().includes("InvalidStateError")) {
+              console.error(
+                "État invalide - la connexion a peut-être été fermée"
+              );
+            }
+
+            // Nettoyer la connexion en cas d'erreur
+            this.removePeer(userId);
           }
         }
 
         async handleICECandidate(message) {
+          console.log("moment ou le premier recois le candidate");
+          console.log({
+            peerConnections: this.peerConnections[message.userId],
+          });
+
           const pc = this.peerConnections[message.userId];
+          console.log({ conditionHandleCandidate: !pc || !message.candidate });
           if (!pc || !message.candidate) return;
 
           try {
