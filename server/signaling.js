@@ -53,6 +53,15 @@ wss.on("connection", (ws) => {
         if (targetPeer) targetPeer.send(JSON.stringify(message));
         break;
 
+      case "location":
+        // Diffuser la localisation à toute la salle
+        broadcastToRoom(roomId, userId, {
+          type: "location",
+          userId: userId,
+          location: message.location,
+        });
+        break;
+
       case "leave":
         cleanupPeer(roomId, userId);
         break;
@@ -82,6 +91,17 @@ wss.on("connection", (ws) => {
         if (room.size === 0) rooms.delete(roomId);
       }
     }
+  }
+
+  function broadcastToRoom(roomId, senderId, message) {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    room.forEach((client, id) => {
+      if (id !== senderId && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
   }
 });
 

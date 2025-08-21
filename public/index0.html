@@ -639,9 +639,9 @@
           this.deafenBtn.addEventListener("click", () => this.toggleDeafen());
           this.codecSelect.addEventListener("change", (e) => {
             this.selectedCodec = e.target.value;
-            if (this.localStream) {
+            /*  if (this.localStream) {
               this.applyCodecPreferences();
-            }
+            } */
           });
         }
 
@@ -1030,6 +1030,7 @@
         }
 
         handleRemoteStream(stream) {
+          console.log("rougarouga");
           this.remoteAudio.srcObject = stream;
           this.setupRemoteVisualization(stream);
         }

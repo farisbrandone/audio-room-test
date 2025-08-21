@@ -673,9 +673,9 @@
           this.deafenBtn.addEventListener("click", () => this.toggleDeafen());
           this.codecSelect.addEventListener("change", (e) => {
             this.selectedCodec = e.target.value;
-            if (this.localStream) {
+            /*   if (this.localStream) {
               this.applyCodecPreferences();
-            }
+            } */
           });
         }
 
@@ -833,12 +833,13 @@
             console.log("Message reçu:", message); // Log pour débogage
             switch (message.type) {
               case "new-peer":
-                console.log("popo");
+                console.log("case new-peer");
                 this.handleNewPeer(message.userId);
                 break;
 
               case "existing-peers":
-                console.log("toto");
+                console.log("case existing-peers");
+                console.log({ peer: message.peers });
                 message.peers.forEach((peerId) => {
                   if (peerId !== this.userId) {
                     this.handleNewPeer(peerId); //gere tous les utilisateur a travers leur userId=peerId
@@ -902,6 +903,7 @@
 
           // Ajouter les pistes locales
           this.localStream.getAudioTracks().forEach((track) => {
+            console.log("part of track");
             pc.addTrack(track, this.localStream);
           });
 
@@ -920,13 +922,13 @@
               );
             }
           };
-
+          console.log("acoté de pc.ontrack");
           pc.ontrack = (event) => {
             console.log("poupou");
             if (event.streams && event.streams[0]) {
               console.log("nounou");
               this.handleRemoteStream(event.streams[0], peerId, audio);
-              //this.remoteLocation.textContent = this.remoteLocationText;
+              this.remoteLocation.textContent = this.remoteLocationText;
             }
           };
 
@@ -967,7 +969,7 @@
               sdp = this.prioritizeCodec(sdp, this.selectedCodec);
             }
 
-            await pc.setLocalDescription(offer /* { type: "offer", sdp } */);
+            await pc.setLocalDescription(/* offer  */ { type: "offer", sdp });
 
             this.socket.send(
               JSON.stringify({
