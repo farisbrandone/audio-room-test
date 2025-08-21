@@ -900,7 +900,15 @@
           this.peerConnections[peerId] = pc;
           //verifier que toutes les pairs ont un websocket de communication
           console.log(this.peerConnections);
-
+          console.log("acoté de pc.ontrack");
+          pc.ontrack = (event) => {
+            console.log("poupou");
+            if (event.streams && event.streams[0]) {
+              console.log("nounou");
+              this.handleRemoteStream(event.streams[0], peerId, audio);
+              this.remoteLocation.textContent = this.remoteLocationText;
+            }
+          };
           // Ajouter les pistes locales
           this.localStream.getAudioTracks().forEach((track) => {
             console.log("part of track");
@@ -922,7 +930,7 @@
               );
             }
           };
-          console.log("acoté de pc.ontrack");
+          /*  console.log("acoté de pc.ontrack");
           pc.ontrack = (event) => {
             console.log("poupou");
             if (event.streams && event.streams[0]) {
@@ -930,7 +938,7 @@
               this.handleRemoteStream(event.streams[0], peerId, audio);
               this.remoteLocation.textContent = this.remoteLocationText;
             }
-          };
+          }; */
 
           console.log("ganga");
 
@@ -969,7 +977,7 @@
               sdp = this.prioritizeCodec(sdp, this.selectedCodec);
             }
 
-            await pc.setLocalDescription(/* offer  */ { type: "offer", sdp });
+            await pc.setLocalDescription(offer /* { type: "offer", sdp } */);
 
             this.socket.send(
               JSON.stringify({
